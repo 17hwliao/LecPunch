@@ -41,17 +41,22 @@ export class StatsService {
     const weekKey = this.getCurrentWeekKey();
     const model = this.attendanceService.getModel();
 
-    // If enrollYear filter is requested, pre-fetch matching userIds
-    let allowedUserIds: string[] | undefined;
-    if (enrollYear !== undefined) {
-      const sameGradeUsers = await this.usersService.findByTeamAndEnrollYear(teamId, enrollYear);
-      allowedUserIds = sameGradeUsers.map((u) => u.id);
+    const members =
+      enrollYear === undefined
+        ? await this.usersService.listTeamMembers(teamId)
+        : await this.usersService.findByTeamAndEnrollYear(teamId, enrollYear);
+
+    if (members.length === 0) {
+      return [];
     }
 
-    const matchStage: Record<string, unknown> = { teamId, weekKey, status: { $ne: 'active' } };
-    if (allowedUserIds) {
-      matchStage.userId = { $in: allowedUserIds };
-    }
+    const memberIds = members.map((member) => member.id);
+    const matchStage: Record<string, unknown> = {
+      teamId,
+      weekKey,
+      status: { $ne: 'active' },
+      userId: { $in: memberIds }
+    };
 
     const rows = await model
       .aggregate([
@@ -62,30 +67,34 @@ export class StatsService {
             totalDurationSeconds: { $sum: '$durationSeconds' },
             sessionsCount: { $sum: 1 }
           }
-        },
-        { $sort: { totalDurationSeconds: -1 } }
+        }
       ])
       .exec();
 
-    const userIds = rows.map((row) => row._id);
-    const users = await this.usersService.findByIds(userIds);
-    const userMap = new Map(users.map((user) => [user.id, user]));
+    const statsByUserId = new Map(rows.map((row) => [row._id, row]));
 
-    return rows.map((row) => {
-      const user = userMap.get(row._id);
-      return {
-        memberKey: this.usersService.getMemberKey(row._id),
-        totalDurationSeconds: row.totalDurationSeconds,
-        sessionsCount: row.sessionsCount,
-        displayName: user?.displayName ?? '未知成员',
-        role: user?.role ?? 'member',
-        enrollYear: user?.enrollYear ?? 0,
-        avatarColor: user?.avatarColor,
-        avatarEmoji: user?.avatarEmoji,
-        avatarBase64: user?.avatarBase64,
-        weekKey
-      };
-    });
+    return members
+      .map((member) => {
+        const stats = statsByUserId.get(member.id);
+        return {
+          memberKey: this.usersService.getMemberKey(member.id),
+          totalDurationSeconds: stats?.totalDurationSeconds ?? 0,
+          sessionsCount: stats?.sessionsCount ?? 0,
+          displayName: member.displayName,
+          role: member.role,
+          enrollYear: member.enrollYear,
+          avatarColor: member.avatarColor,
+          avatarEmoji: member.avatarEmoji,
+          avatarBase64: member.avatarBase64,
+          weekKey
+        };
+      })
+      .sort(
+        (left, right) =>
+          right.totalDurationSeconds - left.totalDurationSeconds ||
+          right.sessionsCount - left.sessionsCount ||
+          left.displayName.localeCompare(right.displayName)
+      );
   }
 
   async getMemberWeeklyStats(currentUserTeamId: string, memberKey: string, limit = 6) {
