@@ -165,7 +165,15 @@ export const MembersPage = () => {
 
     return [...members]
       .filter((member) => (selectedEnrollYear === 'all' ? true : String(member.enrollYear) === selectedEnrollYear))
-      .filter((member) => (normalizedSearch ? member.displayName.toLowerCase().includes(normalizedSearch) : true))
+      .filter((member) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        return [member.displayName, member.realName]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(normalizedSearch));
+      })
       .filter((member) => (minimumSeconds === null ? true : member.totalDurationSeconds >= minimumSeconds))
       .filter((member) => (maximumSeconds === null ? true : member.totalDurationSeconds <= maximumSeconds))
       .sort((left, right) => {
@@ -254,7 +262,10 @@ export const MembersPage = () => {
             avatarBase64={row.avatarBase64}
           />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-gray-900">{row.displayName}</div>
+            <div className="truncate text-sm font-semibold text-gray-900">
+              {row.displayName}
+              {row.realName ? <span className="text-gray-500">（{row.realName}）</span> : null}
+            </div>
           </div>
         </div>
       )

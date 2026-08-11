@@ -81,6 +81,7 @@ export class StatsService {
           totalDurationSeconds: stats?.totalDurationSeconds ?? 0,
           sessionsCount: stats?.sessionsCount ?? 0,
           displayName: member.displayName,
+          realName: member.realName,
           role: member.role,
           enrollYear: member.enrollYear,
           avatarColor: member.avatarColor,

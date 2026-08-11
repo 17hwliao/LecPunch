@@ -31,7 +31,7 @@ describe('StatsService', () => {
       ])
     });
     usersService.listTeamMembers.mockResolvedValue([
-      { id: 'user-1', displayName: 'Alice', role: 'member', enrollYear: 2024 },
+      { id: 'user-1', displayName: 'Alice', realName: 'Alice Zhang', role: 'member', enrollYear: 2024 },
       { id: 'user-2', displayName: 'Bob', role: 'member', enrollYear: 2025 }
     ]);
 
@@ -43,6 +43,7 @@ describe('StatsService', () => {
         totalDurationSeconds: 7200,
         sessionsCount: 2,
         displayName: 'Alice',
+        realName: 'Alice Zhang',
         role: 'member',
         enrollYear: 2024,
         weekKey: expect.any(String)

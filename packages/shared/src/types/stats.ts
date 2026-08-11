@@ -8,6 +8,7 @@ export interface WeeklyStatItem {
 export interface TeamWeeklyStatItem extends WeeklyStatItem {
   memberKey: string;
   displayName: string;
+  realName?: string;
   role: 'member' | 'admin';
   enrollYear: number;
   avatarColor?: string;
