@@ -14,24 +14,14 @@ const loginModeSchema = z.enum(['login', 'register']);
 const loginFormSchema = z
   .object({
     mode: loginModeSchema,
-    username: z.string().trim().min(1, '请输入用户名'),
+    username: z.string().trim().min(3, '用户名至少 3 个字符'),
     password: z.string().min(6, '密码至少 6 位'),
-    displayName: z.string(),
     realName: z.string(),
     studentId: z.string()
   })
   .superRefine((value, context) => {
     if (value.mode !== 'register') {
       return;
-    }
-
-    const displayName = value.displayName.trim() || value.username.trim();
-    if (displayName.length < 2) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['displayName'],
-        message: '显示名称至少 2 个字符'
-      });
     }
 
     if (value.realName.trim().length < 2) {
@@ -71,7 +61,6 @@ export const LoginPage = () => {
       mode: 'login',
       username: '',
       password: '',
-      displayName: '',
       realName: '',
       studentId: ''
     }
@@ -83,14 +72,13 @@ export const LoginPage = () => {
 
     setSubmitting(true);
     try {
-      const displayName = values.displayName.trim() || values.username.trim();
       const payload =
         values.mode === 'login'
           ? await login({ username: values.username, password: values.password })
           : await login({
               username: values.username,
               password: values.password,
-              displayName,
+              displayName: values.username.trim(),
               studentId: values.studentId,
               realName: values.realName,
               mode: 'register',
@@ -140,19 +128,6 @@ export const LoginPage = () => {
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         {mode === 'register' ? (
           <>
-            <Controller
-              control={control}
-              name="displayName"
-              render={({ field }) => (
-                <Input
-                  id="displayName"
-                  label="显示名称"
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={errors.displayName?.message}
-                />
-              )}
-            />
             <Controller
               control={control}
               name="realName"
