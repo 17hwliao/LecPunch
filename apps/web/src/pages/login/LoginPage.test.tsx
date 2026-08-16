@@ -154,7 +154,7 @@ describe('LoginPage', () => {
     );
 
     await user.click(screen.getByRole('button', { name: '注册' }));
-    await user.type(screen.getByLabelText('显示名称'), 'Alice');
+    expect(screen.queryByLabelText('显示名称')).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('真实姓名'), '张三');
     await user.type(screen.getByLabelText('学号（12位数字）'), '202612340001');
     await user.type(screen.getByLabelText('用户名'), 'alice');
@@ -162,6 +162,14 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: '注册并登录' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('当前学号不在准入名单，请联系管理员');
+    expect(mocks.login).toHaveBeenCalledWith({
+      username: 'alice',
+      password: '123456',
+      displayName: 'alice',
+      studentId: '202612340001',
+      realName: '张三',
+      mode: 'register'
+    });
   });
 
   it('shows registration-closed message for register mode unauthorized errors', async () => {
@@ -182,7 +190,6 @@ describe('LoginPage', () => {
     );
 
     await user.click(screen.getByRole('button', { name: '注册' }));
-    await user.type(screen.getByLabelText('显示名称'), 'Alice');
     await user.type(screen.getByLabelText('真实姓名'), '张三');
     await user.type(screen.getByLabelText('学号（12位数字）'), '202612340001');
     await user.type(screen.getByLabelText('用户名'), 'alice');

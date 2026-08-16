@@ -9,6 +9,8 @@ describe('StatsService', () => {
   const usersService = {
     findById: vi.fn(),
     findByIds: vi.fn(),
+    findByTeamAndEnrollYear: vi.fn(),
+    listTeamMembers: vi.fn(),
     findByMemberKey: vi.fn(),
     getMemberKey: vi.fn((id: string) => `key-${id}`)
   };
@@ -22,13 +24,16 @@ describe('StatsService', () => {
     service = new StatsService(attendanceService as any, usersService as any);
   });
 
-  it('returns team current week stats enriched with member profile fields', async () => {
+  it('returns every team member, including members without current-week sessions', async () => {
     aggregate.mockReturnValue({
       exec: vi.fn().mockResolvedValue([
         { _id: 'user-1', totalDurationSeconds: 7200, sessionsCount: 2 }
       ])
     });
-    usersService.findByIds.mockResolvedValue([{ id: 'user-1', displayName: 'Alice', role: 'member', enrollYear: 2024 }]);
+    usersService.listTeamMembers.mockResolvedValue([
+      { id: 'user-1', displayName: 'Alice', realName: 'Alice Zhang', role: 'member', enrollYear: 2024 },
+      { id: 'user-2', displayName: 'Bob', role: 'member', enrollYear: 2025 }
+    ]);
 
     const result = await service.getTeamCurrentWeekStats('team-1');
 
@@ -38,10 +43,54 @@ describe('StatsService', () => {
         totalDurationSeconds: 7200,
         sessionsCount: 2,
         displayName: 'Alice',
+        realName: 'Alice Zhang',
         role: 'member',
         enrollYear: 2024,
         weekKey: expect.any(String)
+      },
+      {
+        memberKey: 'key-user-2',
+        totalDurationSeconds: 0,
+        sessionsCount: 0,
+        displayName: 'Bob',
+        role: 'member',
+        enrollYear: 2025,
+        weekKey: expect.any(String)
       }
+    ]);
+  });
+
+  it('limits same-grade results to the current member roster before merging weekly stats', async () => {
+    aggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([]) });
+    usersService.findByTeamAndEnrollYear.mockResolvedValue([
+      { id: 'user-1', displayName: 'Alice', role: 'member', enrollYear: 2024 },
+      { id: 'user-2', displayName: 'Bob', role: 'member', enrollYear: 2024 }
+    ]);
+
+    const result = await service.getTeamCurrentWeekStats('team-1', 2024);
+
+    expect(usersService.findByTeamAndEnrollYear).toHaveBeenCalledWith('team-1', 2024);
+    expect(usersService.listTeamMembers).not.toHaveBeenCalled();
+    expect(aggregate).toHaveBeenCalledWith([
+      {
+        $match: {
+          teamId: 'team-1',
+          weekKey: expect.any(String),
+          status: { $ne: 'active' },
+          userId: { $in: ['user-1', 'user-2'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$userId',
+          totalDurationSeconds: { $sum: '$durationSeconds' },
+          sessionsCount: { $sum: 1 }
+        }
+      }
+    ]);
+    expect(result).toEqual([
+      expect.objectContaining({ displayName: 'Alice', enrollYear: 2024, totalDurationSeconds: 0, sessionsCount: 0 }),
+      expect.objectContaining({ displayName: 'Bob', enrollYear: 2024, totalDurationSeconds: 0, sessionsCount: 0 })
     ]);
   });
 
@@ -51,7 +100,7 @@ describe('StatsService', () => {
     aggregate.mockReturnValue({
       exec: vi.fn().mockResolvedValue([])
     });
-    usersService.findByIds.mockResolvedValue([]);
+    usersService.listTeamMembers.mockResolvedValue([{ id: 'user-1', displayName: 'Alice', role: 'member', enrollYear: 2024 }]);
 
     await service.getTeamCurrentWeekStats('team-1');
 
@@ -60,7 +109,8 @@ describe('StatsService', () => {
         $match: {
           teamId: 'team-1',
           weekKey: '2026-04-06',
-          status: { $ne: 'active' }
+          status: { $ne: 'active' },
+          userId: { $in: ['user-1'] }
         }
       },
       {
@@ -69,8 +119,7 @@ describe('StatsService', () => {
           totalDurationSeconds: { $sum: '$durationSeconds' },
           sessionsCount: { $sum: 1 }
         }
-      },
-      { $sort: { totalDurationSeconds: -1 } }
+      }
     ]);
   });
 
