@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Clipboard, Clock3, KeyRound, RefreshCw, Settings2, Video, VideoOff } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Clipboard, Clock3, KeyRound, Maximize2, Minimize2, RefreshCw, Settings2, Video, VideoOff } from 'lucide-react';
 import { fetchMeetToken, isAdminPreviewSession } from '@/lib/api';
 import { buildMeetingUrl, getLocalMeetingSettings, type LocalMeetingSettings, validateMeetingRoom } from '@/lib/meeting';
 import type { ElectionUser, MeetTokenResponse } from '@/types';
@@ -25,6 +25,18 @@ export const MeetingPage = ({ user, onNotice, onOpenSettings }: {
   const [meeting, setMeeting] = useState<MeetTokenResponse | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [joining, setJoining] = useState(false);
+  const [theater, setTheater] = useState(false);
+  const stageRef = useRef<HTMLElement | null>(null);
+
+  const toggleTheater = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    void stage.requestFullscreen().catch(() => setTheater((current) => !current));
+  };
 
   useEffect(() => {
     void getLocalMeetingSettings()
@@ -44,6 +56,12 @@ export const MeetingPage = ({ user, onNotice, onOpenSettings }: {
     const timer = window.setInterval(updateRemaining, 1_000);
     return () => window.clearInterval(timer);
   }, [meeting]);
+
+  useEffect(() => {
+    const syncFullscreen = () => setTheater(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
 
   const join = async () => {
     let safeRoom: string;
@@ -79,11 +97,17 @@ export const MeetingPage = ({ user, onNotice, onOpenSettings }: {
       return onNotice(error instanceof Error ? error.message : '房间名无效。');
     }
     if (!settings?.meetingOrigin) return onNotice('请先在“个人设置”中保存局域网会议地址。');
+    if (isAdminPreviewSession()) return onNotice('本地演示模式不会请求会议令牌。');
+    setJoining(true);
     try {
-      await navigator.clipboard.writeText(`【LEC 视频会议】房间：${safeRoom}\n入会：打开 Election → 视频会议 → 输入房间名 ${safeRoom}\n会议地址：${settings.meetingOrigin}（仅限团队局域网）`);
-      onNotice('会议邀请已复制，可发送给同一局域网内的成员。');
-    } catch {
-      onNotice('无法访问系统剪贴板，请检查桌面端权限后重试。');
+      const invite = await fetchMeetToken(safeRoom);
+      const link = buildMeetingUrl(settings.meetingOrigin, safeRoom, invite.token);
+      await navigator.clipboard.writeText(`【LEC 视频会议】房间：${safeRoom}\n5 分钟内点击链接直接入会（浏览器 / 客户端均可）：${link}\n若提示选择摄像头与麦克风，请允许；仅限团队局域网访问。令牌过期后请重新复制邀请。`);
+      onNotice('带令牌的会议链接已复制：5 分钟内有效，请尽快发给成员入会。');
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : '生成会议邀请失败，请稍后重试。');
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -111,15 +135,15 @@ export const MeetingPage = ({ user, onNotice, onOpenSettings }: {
         <p className="meeting-security-note">只允许已配置的 HTTPS 局域网主机请求摄像头和麦克风权限；其他网页默认拒绝。</p>
       </article>
 
-      <article className={`meeting-stage blue-card ${meetingUrl ? 'meeting-connected' : ''}`}>
+      <article ref={stageRef} className={`meeting-stage blue-card ${meetingUrl ? 'meeting-connected' : ''} ${theater ? 'meeting-theater' : ''}`}>
         {meetingUrl && meeting ? <>
-          <header><div><p className="eyebrow">IN MEETING</p><h2>{meeting.room}</h2></div><span><Clock3 size={14} />令牌剩余 {formatRemaining(remaining)}</span></header>
+          <header><div><p className="eyebrow">IN MEETING</p><h2>{meeting.room}</h2></div><span><Clock3 size={14} />令牌剩余 {formatRemaining(remaining)}</span><button className="meeting-theater-button" title={theater ? '还原窗口大小' : '全屏显示会议画面'} onClick={toggleTheater}>{theater ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{theater ? '还原' : '全屏'}</button></header>
           <iframe
             key={meetingUrl}
             className="meeting-frame"
             title={`LecPunch 视频会议：${meeting.room}`}
             src={meetingUrl}
-            allow="camera; microphone"
+            allow="camera; microphone; display-capture; fullscreen"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             referrerPolicy="no-referrer"
           />

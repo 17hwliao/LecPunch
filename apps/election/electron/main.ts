@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, Notification, protocol, screen, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, Menu, nativeImage, net, Notification, protocol, screen, session, shell, Tray } from 'electron';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -1022,6 +1022,14 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
     callback(permission === 'media' && isConfiguredMeetingUrl(details.requestingUrl));
   });
+  // Screen sharing inside the Jitsi iframe: the OS-native picker (screens +
+  // windows, the same experience as browser sharing) is preferred. When the
+  // platform picker is unavailable, fall back to sharing the primary screen.
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      callback(sources.length ? { video: sources[0] } : {});
+    }).catch(() => callback({}));
+  }, { useSystemPicker: true });
   createWindow();
   createCompanionWindow();
   createTray();

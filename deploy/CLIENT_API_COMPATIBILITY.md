@@ -96,7 +96,9 @@ Clients must never connect directly to MongoDB.
 `GET /api/meet/token?room=<name>` is a JWT-authenticated, zero-storage route.
 It accepts only a 1–64 character room name composed of letters, numbers,
 hyphens, and underscores. It returns `{ token, room, expiresAt,
-expiresInSeconds }`; `expiresInSeconds` is 300. The JWT is HS256-signed with
+expiresInSeconds }`; `expiresInSeconds` is 300 (five minutes — invite links
+are meant to be used immediately for a meeting happening now). The JWT is
+HS256-signed with
 the independent `MEET_JWT_SECRET`, has matching `iss`, `aud`, and `sub` values
 of `MEET_JWT_APP_ID`, is limited to the requested `room`, and places the
 authenticated LecPunch user ID in `context.user.id`. It never accepts a user or
