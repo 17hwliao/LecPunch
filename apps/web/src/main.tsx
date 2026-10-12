@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { LogtoProvider } from '@logto/react';
 import { App } from './app/App';
+import { logtoAppId, logtoEndpoint, logtoResource } from './shared/auth/logto';
 import './app/styles/index.css';
 
 const rootElement = document.getElementById('root');
@@ -10,6 +12,15 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <LogtoProvider
+      config={{
+        endpoint: logtoEndpoint,
+        appId: logtoAppId,
+        resources: [logtoResource],
+        scopes: ['studio:access', 'studio:admin:access']
+      }}
+    >
+      <App />
+    </LogtoProvider>
   </React.StrictMode>
 );

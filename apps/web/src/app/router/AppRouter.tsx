@@ -7,6 +7,7 @@ import { MainLayout } from '../layouts/MainLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminRoute } from './AdminRoute';
 import { LoginPage } from '@/pages/login/LoginPage';
+import { CallbackPage } from '@/pages/login/CallbackPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { RecordsPage } from '@/pages/records/RecordsPage';
 import { MembersPage } from '@/pages/members/MembersPage';
@@ -36,6 +37,14 @@ const router = createBrowserRouter([
   {
     element: <Root />,
     children: [
+      {
+        path: '/callback',
+        element: (
+          <AuthLayout>
+            <CallbackPage />
+          </AuthLayout>
+        )
+      },
       {
         path: '/login',
         element: (
