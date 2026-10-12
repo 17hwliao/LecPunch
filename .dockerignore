@@ -1,5 +1,6 @@
 .git
 .github
+._*
 .claude
 .turbo
 node_modules
