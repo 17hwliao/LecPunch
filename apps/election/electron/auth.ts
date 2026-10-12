@@ -146,13 +146,25 @@ export class DesktopAuth {
         response.writeHead(404).end();
         return;
       }
+      if ((request.url?.length ?? 0) > 8192) {
+        response.writeHead(414).end();
+        return;
+      }
       const code = url.searchParams.get('code');
       if (!code || url.searchParams.get('state') !== state || url.searchParams.has('error')) {
-        response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end('LEC SSO 登录失败，可以关闭此页面。');
+        response.writeHead(400, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Content-Security-Policy': "default-src 'none'"
+        }).end('LEC SSO 登录失败，可以关闭此页面。');
         reject(new Error('LEC SSO 登录回调无效。'));
         return;
       }
-      response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end('LEC SSO 登录成功，可以关闭此页面并返回 LecPunch。');
+      response.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Content-Security-Policy': "default-src 'none'"
+      }).end('LEC SSO 登录成功，可以关闭此页面并返回 LecPunch。');
       settle(code);
     });
     server.listen(0, '127.0.0.1');

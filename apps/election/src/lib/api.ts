@@ -136,7 +136,7 @@ const dispatchAuthExpired = () => {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
 };
 
-const requestResponse = async (path: string, init: RequestInit = {}): Promise<Response> => {
+const requestResponse = async (path: string, init: RequestInit = {}, mayRetry = true): Promise<Response> => {
   const token = isAdminPreviewSession() ? undefined : await window.lecpunchDesktop?.auth.getAccessToken();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -153,6 +153,10 @@ const requestResponse = async (path: string, init: RequestInit = {}): Promise<Re
   }
 
   if (response.ok) return response;
+  if (response.status === 401 && mayRetry && token) {
+    window.lecpunchDesktop?.auth.invalidateAccessToken();
+    return requestResponse(path, init, false);
+  }
   const payload = await response.json().catch(() => null) as { message?: unknown; code?: string } | null;
   if (response.status === 401) dispatchAuthExpired();
   throw new ApiError(response.status, errorMessageForStatus(response.status, payload), payload?.code, payload);

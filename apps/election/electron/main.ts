@@ -24,6 +24,8 @@ let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let desktopAuth: DesktopAuth;
 let isQuitting = false;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 let companionOverlayState = { menuOpen: false, settingsOpen: false };
 let companionLayoutEditorActive = false;
 let companionPointerDown: { x: number; y: number; windowX: number; windowY: number; dragging: boolean } | null = null;
@@ -830,8 +832,15 @@ const createWindow = () => {
   observeWindowDiagnostics('main', mainWindow);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    try {
+      if (new URL(url).protocol === 'https:') void shell.openExternal(url);
+    } catch {
+      // 拒绝非法外部地址。
+    }
     return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow?.webContents.getURL()) event.preventDefault();
   });
 
   void loadRenderer(mainWindow);
@@ -883,8 +892,15 @@ const createCompanionWindow = () => {
   companionWindow.setAlwaysOnTop(true, 'floating');
   companionWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   companionWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    try {
+      if (new URL(url).protocol === 'https:') void shell.openExternal(url);
+    } catch {
+      // 拒绝非法外部地址。
+    }
     return { action: 'deny' };
+  });
+  companionWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== companionWindow?.webContents.getURL()) event.preventDefault();
   });
   void loadRenderer(companionWindow, 'companion');
   companionWindow.once('ready-to-show', () => {
@@ -986,7 +1002,15 @@ const importCompanionSkin = async (): Promise<CompanionSkinImportResult> => {
   };
 };
 
-app.whenReady().then(() => {
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+if (hasSingleInstanceLock) app.whenReady().then(() => {
   protocol.handle('lecpunch-assets', (request) => {
     const requestUrl = new URL(request.url);
     const relativePath = path.normalize(decodeURIComponent(requestUrl.pathname)).replace(/^([/\\])+/, '');
