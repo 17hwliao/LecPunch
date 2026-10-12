@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { DesktopAuth } from './auth';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'lecpunch-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
@@ -21,6 +22,7 @@ const { uIOhook, UiohookKey } = require(nativeModuleRoot) as typeof import('uioh
 let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let desktopAuth: DesktopAuth;
 let isQuitting = false;
 let companionOverlayState = { menuOpen: false, settingsOpen: false };
 let companionLayoutEditorActive = false;
@@ -1009,6 +1011,7 @@ app.whenReady().then(() => {
   });
 
   Menu.setApplicationMenu(null);
+  desktopAuth = new DesktopAuth(app.getPath('userData'));
   loadCompanionSettings();
   loadMeetingSettings();
   loadAppearanceSettings();
@@ -1076,6 +1079,25 @@ app.whenReady().then(() => {
     syncCompanionMouseCapture();
   });
   uIOhook.start();
+
+  const fromMainWindow = (event: Electron.IpcMainInvokeEvent) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error('无权访问桌面登录状态。');
+  };
+  const notifyAuthChanged = () => mainWindow?.webContents.send('auth:changed', desktopAuth.status());
+  ipcMain.handle('auth:status', (event) => { fromMainWindow(event); return desktopAuth.status(); });
+  ipcMain.handle('auth:sign-in', async (event) => {
+    fromMainWindow(event);
+    const status = await desktopAuth.signIn();
+    notifyAuthChanged();
+    return status;
+  });
+  ipcMain.handle('auth:sign-out', async (event) => {
+    fromMainWindow(event);
+    await desktopAuth.signOut();
+    notifyAuthChanged();
+  });
+  ipcMain.handle('auth:get-access-token', (event) => { fromMainWindow(event); return desktopAuth.getAccessToken(); });
+  ipcMain.handle('auth:invalidate-access-token', (event) => { fromMainWindow(event); desktopAuth.invalidateAccessToken(); });
 
   ipcMain.handle('desktop:notify', (_event, payload: { title?: string; body?: string }) => {
     // The pet bubble is the fallback when Windows notifications are unavailable
@@ -1218,6 +1240,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  desktopAuth?.close();
   setQuietNativePopupGuard(false);
   uIOhook.stop();
 });

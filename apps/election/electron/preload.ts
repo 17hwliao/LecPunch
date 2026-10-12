@@ -4,6 +4,18 @@ contextBridge.exposeInMainWorld('lecpunchDesktop', {
   platform: process.platform,
   isDesktop: true,
   isPackaged: !process.defaultApp,
+  auth: {
+    getStatus: () => ipcRenderer.invoke('auth:status') as Promise<{ authenticated: boolean }>,
+    signIn: () => ipcRenderer.invoke('auth:sign-in') as Promise<{ authenticated: boolean }>,
+    signOut: () => ipcRenderer.invoke('auth:sign-out') as Promise<void>,
+    getAccessToken: () => ipcRenderer.invoke('auth:get-access-token') as Promise<string>,
+    invalidateAccessToken: () => ipcRenderer.invoke('auth:invalidate-access-token') as Promise<void>,
+    onChanged: (callback: (status: { authenticated: boolean }) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, status: { authenticated: boolean }) => callback(status);
+      ipcRenderer.on('auth:changed', listener);
+      return () => ipcRenderer.removeListener('auth:changed', listener);
+    }
+  },
   notify: (payload: { title: string; body: string }) => ipcRenderer.invoke('desktop:notify', payload),
   hideToTray: () => ipcRenderer.invoke('desktop:hide-to-tray'),
   setImmersive: (enabled: boolean) => ipcRenderer.invoke('desktop:set-immersive', enabled) as Promise<{ enabled: boolean; managedApps: string[]; message: string }>,

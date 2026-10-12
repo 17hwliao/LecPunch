@@ -5,6 +5,14 @@ interface Window {
     platform: string;
     isDesktop: boolean;
     isPackaged: boolean;
+    auth: {
+      getStatus: () => Promise<{ authenticated: boolean }>;
+      signIn: () => Promise<{ authenticated: boolean }>;
+      signOut: () => Promise<void>;
+      getAccessToken: () => Promise<string>;
+      invalidateAccessToken: () => Promise<void>;
+      onChanged: (callback: (status: { authenticated: boolean }) => void) => () => void;
+    };
     notify: (payload: { title: string; body: string }) => Promise<void>;
     hideToTray: () => Promise<void>;
     setImmersive: (enabled: boolean) => Promise<{ enabled: boolean; managedApps: string[]; message: string }>;

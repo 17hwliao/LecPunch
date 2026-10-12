@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Bell, BellRing, BookOpenText, CalendarDays, Cat, Check, ChevronRight, CircleDollarSign, Crown, EyeOff, Flag, Flame, LayoutDashboard, LockKeyhole, LogOut, Menu, Minimize2, Moon, RefreshCw, Save, ShieldCheck, ShoppingBag, Sparkles, Trophy, UserRound, UsersRound, Video, VolumeX, X } from 'lucide-react';
-import { AUTH_EXPIRED_EVENT, ApiError, acknowledgeNotification, checkIn, checkOut, clearToken, fetchAttendance, fetchCurrentUser, fetchNotifications, fetchPoints, fetchTeamActiveAttendance, fetchTeamWeeklyStats, login, readToken, startNotificationStream, updatePassword, updateProfile } from '@/lib/api';
+import { AUTH_EXPIRED_EVENT, ApiError, acknowledgeNotification, checkIn, checkOut, clearToken, fetchAttendance, fetchCurrentUser, fetchNotifications, fetchPoints, fetchTeamActiveAttendance, fetchTeamWeeklyStats, getAuthStatus, login, startNotificationStream, updatePassword, updateProfile } from '@/lib/api';
 import type { AttendanceSnapshot, ElectionNotification, ElectionUser, TeamActiveAttendance, TeamWeeklyStat } from '@/types';
 import { AdminPage } from '@/AdminPage';
 import { ProfileSettingsPage } from '@/ProfileSettingsPage';
@@ -76,7 +76,7 @@ export const App = () => {
   const [activeMembers, setActiveMembers] = useState<TeamActiveAttendance[]>([]);
   const [notifications, setNotifications] = useState<ElectionNotification[]>([]);
   const [view, setView] = useState<View>('dashboard');
-  const [loading, setLoading] = useState(Boolean(readToken()));
+  const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(() => readStoredBoolean(REMINDER_STORAGE_KEY, true));
@@ -145,7 +145,9 @@ export const App = () => {
     }
   };
 
-  useEffect(() => { if (readToken()) void refresh(); }, []);
+  useEffect(() => {
+    void getAuthStatus().then(({ authenticated }) => authenticated ? refresh() : setLoading(false));
+  }, []);
   useEffect(() => {
     const handleExpired = () => {
       setUser(null);
@@ -297,7 +299,7 @@ export const App = () => {
     }
   };
 
-  if (!user) return <LoginScreen loading={loading} notice={notice} onLogin={async (username, password) => { setLoading(true); try { setUser(await login(username, password)); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
+  if (!user) return <LoginScreen loading={loading} notice={notice} onLogin={async () => { setLoading(true); try { setUser(await login()); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
 
   const labels: Record<View, string> = { dashboard: '工作台', progress: '我的专注', ranking: '打卡排行', team: '团队成员', events: '团队事务', meeting: '视频会议', shop: '小猫商城', reports: '成长报告', feedback: '请假申请', profile: '个人设置', admin: '管理员控制台' };
   const unreadNotificationCount = notifications.filter((item) => !item.acknowledgedAt).length;
@@ -306,7 +308,7 @@ export const App = () => {
     <div className="app-background-scrim" aria-hidden="true" />
     <div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" />
     <section className="desktop-frame">
-      <Sidebar active={view} open={mobileOpen} onSelect={(next) => { setView(next); setMobileOpen(false); }} user={user} onLogout={() => { clearToken(); setUser(null); setNotifications([]); }} immersive={immersive} onToggleImmersive={toggleImmersive} />
+      <Sidebar active={view} open={mobileOpen} onSelect={(next) => { setView(next); setMobileOpen(false); }} user={user} onLogout={() => { void clearToken(); setUser(null); setNotifications([]); }} immersive={immersive} onToggleImmersive={toggleImmersive} />
       <div className="workspace">
         <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={19} /></button><div className="crumb"><span>LEC / ELECTION</span><ChevronRight size={14} /><strong>{labels[view]}</strong></div><div className="topbar-actions"><button className="icon-button cat-recall-button" aria-label="唤起桌面小猫" title="唤起桌面小猫" onClick={() => void showCat()}><Cat size={18} /></button><button className="icon-button notification-button" aria-label="查看通知" title="查看通知" onClick={() => setView(user.role === 'admin' ? 'admin' : 'feedback')}><Bell size={18} />{unreadNotificationCount ? <i>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</i> : null}</button><button className="icon-button" aria-label="测试系统提醒" onClick={() => { void showDesktopReminder('LecPunch 提醒测试', 'Windows 原生提醒已准备就绪。'); setNotice('已发送 Windows 原生提醒测试。'); }}><BellRing size={18} /></button><button className="icon-button" aria-label="最小化到系统托盘" onClick={() => void hideToTray()}><Minimize2 size={18} /></button><button className="icon-button" aria-label="刷新数据" onClick={() => void refresh()}><RefreshCw size={18} /></button><button className="profile-chip profile-button" onClick={() => setView((current) => current === 'profile' ? 'dashboard' : 'profile')} title={view === 'profile' ? '返回工作台' : '个人设置'}><span>{user.avatarBase64 ? <img src={user.avatarBase64} alt="" /> : user.avatarEmoji || user.displayName.slice(0, 1)}</span><div><strong>{user.displayName}</strong><small>{user.role === 'admin' ? '管理员' : '成员'}</small></div></button></div></header>
         {notice ? <div className="toast"><Check size={16} /><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div> : null}
@@ -376,11 +378,7 @@ const ProfilePage = ({ user, onUserChanged, onNotice }: { user: ElectionUser; on
 
 const InfoRow = ({ label, value }: { label: string; value: string }) => <div><small>{label}</small><strong>{value}</strong></div>;
 
-const LoginScreen = ({ loading, notice, onLogin }: { loading: boolean; notice: string | null; onLogin: (username: string, password: string) => Promise<void> }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  return <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" /><section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">打卡、团队节奏和成长报告，在同一个蓝白空间里完成。</p><form onSubmit={(event: FormEvent) => { event.preventDefault(); void onLogin(username, password); }}><label>用户名<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="输入用户名" autoFocus /></label><label>密码<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="输入密码" /></label>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading}>{loading ? '正在连接...' : '进入工作台'}<ArrowUpRight size={18} /></button></form></section></main>;
-};
+const LoginScreen = ({ loading, notice, onLogin }: { loading: boolean; notice: string | null; onLogin: () => Promise<void> }) => <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" /><section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">使用 LEC SSO 登录；首次会打开系统浏览器，之后自动续期。</p>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading} onClick={() => void onLogin()}>{loading ? '正在连接...' : '使用 LEC SSO 登录'}<ArrowUpRight size={18} /></button></section></main>;
 
 const Sidebar = ({ active, open, onSelect, user, onLogout, immersive, onToggleImmersive }: { active: View; open: boolean; onSelect: (view: View) => void; user: ElectionUser; onLogout: () => void; immersive: boolean; onToggleImmersive: () => void }) => {
   const items: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
