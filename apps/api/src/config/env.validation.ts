@@ -73,10 +73,14 @@ export const validationSchema = Joi.object({
     if (!value.ALLOW_ANY_NETWORK && !hasAllowedIps && !hasAllowedCidrs) {
       return helpers.error('network.allowlistRequired');
     }
+    if (value.AUTH_SECRET === value.MEET_JWT_SECRET) {
+      return helpers.error('secret.reused');
+    }
 
     return value;
   })
   .messages({
     'network.allowlistRequired':
-      'ALLOWED_PUBLIC_IPS or ALLOWED_CIDRS must be configured when ALLOW_ANY_NETWORK=false'
+      'ALLOWED_PUBLIC_IPS or ALLOWED_CIDRS must be configured when ALLOW_ANY_NETWORK=false',
+    'secret.reused': 'MEET_JWT_SECRET must differ from AUTH_SECRET'
   });

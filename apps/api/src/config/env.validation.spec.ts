@@ -3,6 +3,9 @@ import { validationSchema } from './env.validation';
 
 const baseEnv = {
   MONGODB_URI: 'mongodb://localhost:27017/lecpunch',
+  LOGTO_ENDPOINT: 'http://localhost:3001',
+  LOGTO_API_RESOURCE: 'https://api.lecpunch.lec.org',
+  LOGTO_ORGANIZATION_ID: 'lec-studio',
   AUTH_SECRET: 'a'.repeat(64),
   MEET_JWT_APP_ID: 'lecpunch-lan-meet',
   MEET_JWT_SECRET: 'f'.repeat(64)
