@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld('lecpunchDesktop', {
   platform: process.platform,
   isDesktop: true,
   isPackaged: !process.defaultApp,
+  updates: {
+    check: () => ipcRenderer.invoke('updates:check') as Promise<{ currentVersion: string; latestVersion?: string; releaseUrl?: string; available: boolean; checked: boolean }>,
+    openRelease: () => ipcRenderer.invoke('updates:open-release') as Promise<void>
+  },
   auth: {
     getStatus: () => ipcRenderer.invoke('auth:status') as Promise<{ authenticated: boolean }>,
     signIn: () => ipcRenderer.invoke('auth:sign-in') as Promise<{ authenticated: boolean }>,

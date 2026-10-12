@@ -5,6 +5,10 @@ interface Window {
     platform: string;
     isDesktop: boolean;
     isPackaged: boolean;
+    updates: {
+      check: () => Promise<{ currentVersion: string; latestVersion?: string; releaseUrl?: string; available: boolean; checked: boolean }>;
+      openRelease: () => Promise<void>;
+    };
     auth: {
       getStatus: () => Promise<{ authenticated: boolean }>;
       signIn: () => Promise<{ authenticated: boolean }>;

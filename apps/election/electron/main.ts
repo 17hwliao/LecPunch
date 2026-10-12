@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DesktopAuth } from './auth';
+import { checkForUpdate, type UpdateStatus } from './update';
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'lecpunch-assets', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
@@ -23,6 +24,7 @@ let mainWindow: BrowserWindow | null = null;
 let companionWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let desktopAuth: DesktopAuth;
+let lastUpdateStatus: UpdateStatus | null = null;
 let isQuitting = false;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
@@ -720,9 +722,10 @@ const keyboardKeyMap = new Map<number, string>([
   [UiohookKey.Space, 'Space'], [UiohookKey.Enter, 'Return'], [UiohookKey.Backspace, 'Backspace'], [UiohookKey.Tab, 'Tab'], [UiohookKey.Escape, 'Escape'], [UiohookKey.CapsLock, 'CapsLock'], [UiohookKey.Delete, 'Delete'], [UiohookKey.Shift, 'ShiftLeft'], [UiohookKey.ShiftRight, 'ShiftRight'], [UiohookKey.Ctrl, 'ControlLeft'], [UiohookKey.CtrlRight, 'ControlRight'], [UiohookKey.Alt, 'Alt'], [UiohookKey.AltRight, 'AltGr'], [UiohookKey.Meta, 'Meta'], [UiohookKey.MetaRight, 'Meta'], [UiohookKey.ArrowUp, 'UpArrow'], [UiohookKey.ArrowDown, 'DownArrow'], [UiohookKey.ArrowLeft, 'LeftArrow'], [UiohookKey.ArrowRight, 'RightArrow']
 ]);
 
-const getIconPath = () => app.isPackaged
-  ? path.join(process.resourcesPath, 'icon.ico')
-  : path.join(__dirname, '..', 'resources', 'icon.ico');
+const getIconPath = () => {
+  const icon = process.platform === 'darwin' ? 'icon.icns' : 'icon.ico';
+  return app.isPackaged ? path.join(process.resourcesPath, icon) : path.join(__dirname, '..', 'resources', icon);
+};
 const setMainWindowTheme = (theme: 'light' | 'dark') => {
   if (!mainWindow || process.platform !== 'win32') return;
   mainWindow.setTitleBarOverlay(theme === 'dark'
@@ -1122,6 +1125,16 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
   });
   ipcMain.handle('auth:get-access-token', (event) => { fromMainWindow(event); return desktopAuth.getAccessToken(); });
   ipcMain.handle('auth:invalidate-access-token', (event) => { fromMainWindow(event); desktopAuth.invalidateAccessToken(); });
+  ipcMain.handle('updates:check', async (event) => {
+    fromMainWindow(event);
+    lastUpdateStatus = await checkForUpdate();
+    return lastUpdateStatus;
+  });
+  ipcMain.handle('updates:open-release', async (event) => {
+    fromMainWindow(event);
+    if (!lastUpdateStatus?.available || !lastUpdateStatus.releaseUrl) return;
+    await shell.openExternal(lastUpdateStatus.releaseUrl);
+  });
 
   ipcMain.handle('desktop:notify', (_event, payload: { title?: string; body?: string }) => {
     // The pet bubble is the fallback when Windows notifications are unavailable

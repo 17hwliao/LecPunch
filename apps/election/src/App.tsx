@@ -16,6 +16,7 @@ import { emptyAppearance, type AppearanceState, type ThemePreference } from '@/A
 
 type View = 'dashboard' | 'progress' | 'ranking' | 'team' | 'events' | 'meeting' | 'shop' | 'reports' | 'feedback' | 'profile' | 'admin';
 type ScheduledTask = { id: string; title: string; time: string; enabled: boolean };
+type AvailableUpdate = { currentVersion: string; latestVersion: string };
 
 const REMINDER_STORAGE_KEY = 'lecpunch.election.reminders-enabled';
 const IMMERSIVE_STORAGE_KEY = 'lecpunch.election.immersive-enabled';
@@ -86,6 +87,17 @@ export const App = () => {
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const [appearance, setAppearance] = useState<AppearanceState>(emptyAppearance);
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdate | null>(null);
+
+  useEffect(() => {
+    const updates = window.lecpunchDesktop?.updates;
+    if (!window.lecpunchDesktop?.isPackaged || !updates) return;
+    void updates.check().then((status) => {
+      if (status.available && status.latestVersion) {
+        setAvailableUpdate({ currentVersion: status.currentVersion, latestVersion: status.latestVersion });
+      }
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!window.lecpunchDesktop) return;
@@ -280,12 +292,12 @@ export const App = () => {
   };
 
   const hideToTray = async () => {
-    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，只有 Windows 桌面端支持最小化到托盘。');
+    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，只有桌面端支持最小化到托盘。');
     await window.lecpunchDesktop.hideToTray();
   };
 
   const showCat = async () => {
-    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，桌面小猫仅在 Windows 客户端中可用。');
+    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，桌面小猫仅在桌面客户端中可用。');
     await window.lecpunchDesktop.showCompanion();
     setNotice('桌面小猫已出现，可拖动它到合适的位置。');
   };
@@ -299,7 +311,7 @@ export const App = () => {
     }
   };
 
-  if (!user) return <LoginScreen loading={loading} notice={notice} onLogin={async () => { setLoading(true); try { setUser(await login()); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
+  if (!user) return <LoginScreen loading={loading} notice={notice} update={availableUpdate} onDismissUpdate={() => setAvailableUpdate(null)} onLogin={async () => { setLoading(true); try { setUser(await login()); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
 
   const labels: Record<View, string> = { dashboard: '工作台', progress: '我的专注', ranking: '打卡排行', team: '团队成员', events: '团队事务', meeting: '视频会议', shop: '小猫商城', reports: '成长报告', feedback: '请假申请', profile: '个人设置', admin: '管理员控制台' };
   const unreadNotificationCount = notifications.filter((item) => !item.acknowledgedAt).length;
@@ -310,8 +322,9 @@ export const App = () => {
     <section className="desktop-frame">
       <Sidebar active={view} open={mobileOpen} onSelect={(next) => { setView(next); setMobileOpen(false); }} user={user} onLogout={() => { void clearToken(); setUser(null); setNotifications([]); }} immersive={immersive} onToggleImmersive={toggleImmersive} />
       <div className="workspace">
-        <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={19} /></button><div className="crumb"><span>LEC / ELECTION</span><ChevronRight size={14} /><strong>{labels[view]}</strong></div><div className="topbar-actions"><button className="icon-button cat-recall-button" aria-label="唤起桌面小猫" title="唤起桌面小猫" onClick={() => void showCat()}><Cat size={18} /></button><button className="icon-button notification-button" aria-label="查看通知" title="查看通知" onClick={() => setView(user.role === 'admin' ? 'admin' : 'feedback')}><Bell size={18} />{unreadNotificationCount ? <i>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</i> : null}</button><button className="icon-button" aria-label="测试系统提醒" onClick={() => { void showDesktopReminder('LecPunch 提醒测试', 'Windows 原生提醒已准备就绪。'); setNotice('已发送 Windows 原生提醒测试。'); }}><BellRing size={18} /></button><button className="icon-button" aria-label="最小化到系统托盘" onClick={() => void hideToTray()}><Minimize2 size={18} /></button><button className="icon-button" aria-label="刷新数据" onClick={() => void refresh()}><RefreshCw size={18} /></button><button className="profile-chip profile-button" onClick={() => setView((current) => current === 'profile' ? 'dashboard' : 'profile')} title={view === 'profile' ? '返回工作台' : '个人设置'}><span>{user.avatarBase64 ? <img src={user.avatarBase64} alt="" /> : user.avatarEmoji || user.displayName.slice(0, 1)}</span><div><strong>{user.displayName}</strong><small>{user.role === 'admin' ? '管理员' : '成员'}</small></div></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={19} /></button><div className="crumb"><span>LEC / ELECTION</span><ChevronRight size={14} /><strong>{labels[view]}</strong></div><div className="topbar-actions"><button className="icon-button cat-recall-button" aria-label="唤起桌面小猫" title="唤起桌面小猫" onClick={() => void showCat()}><Cat size={18} /></button><button className="icon-button notification-button" aria-label="查看通知" title="查看通知" onClick={() => setView(user.role === 'admin' ? 'admin' : 'feedback')}><Bell size={18} />{unreadNotificationCount ? <i>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</i> : null}</button><button className="icon-button" aria-label="测试系统提醒" onClick={() => { void showDesktopReminder('LecPunch 提醒测试', '系统提醒已准备就绪。'); setNotice('已发送系统提醒测试。'); }}><BellRing size={18} /></button><button className="icon-button" aria-label="最小化到系统托盘" onClick={() => void hideToTray()}><Minimize2 size={18} /></button><button className="icon-button" aria-label="刷新数据" onClick={() => void refresh()}><RefreshCw size={18} /></button><button className="profile-chip profile-button" onClick={() => setView((current) => current === 'profile' ? 'dashboard' : 'profile')} title={view === 'profile' ? '返回工作台' : '个人设置'}><span>{user.avatarBase64 ? <img src={user.avatarBase64} alt="" /> : user.avatarEmoji || user.displayName.slice(0, 1)}</span><div><strong>{user.displayName}</strong><small>{user.role === 'admin' ? '管理员' : '成员'}</small></div></button></div></header>
         {notice ? <div className="toast"><Check size={16} /><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div> : null}
+        {availableUpdate ? <div className="update-banner" role="status"><div><strong>发现新版本 v{availableUpdate.latestVersion}</strong><span>当前版本 v{availableUpdate.currentVersion}</span></div><button className="primary-button" onClick={() => void window.lecpunchDesktop?.updates.openRelease()}>前往下载</button><button className="icon-button" onClick={() => setAvailableUpdate(null)} aria-label="暂时忽略更新"><X size={17} /></button></div> : null}
         {loading ? <div className="loading-line" /> : null}
         {view === 'dashboard' ? <Dashboard user={user} attendance={attendance} points={points} teamStats={teamStats} activeMembers={activeMembers} remindersEnabled={remindersEnabled} scheduledTasks={scheduledTasks} onToggleReminders={() => setRemindersEnabled((current) => !current)} onManageTasks={() => setScheduleOpen(true)} onAttendance={() => void handleAttendance()} onRanking={() => setView('ranking')} /> : null}
         {view === 'progress' ? <PersonalProgressPage onNotice={setNotice} /> : null}
@@ -378,7 +391,7 @@ const ProfilePage = ({ user, onUserChanged, onNotice }: { user: ElectionUser; on
 
 const InfoRow = ({ label, value }: { label: string; value: string }) => <div><small>{label}</small><strong>{value}</strong></div>;
 
-const LoginScreen = ({ loading, notice, onLogin }: { loading: boolean; notice: string | null; onLogin: () => Promise<void> }) => <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" /><section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">使用 LEC SSO 登录；首次会打开系统浏览器，之后自动续期。</p>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading} onClick={() => void onLogin()}>{loading ? '正在连接...' : '使用 LEC SSO 登录'}<ArrowUpRight size={18} /></button></section></main>;
+const LoginScreen = ({ loading, notice, update, onDismissUpdate, onLogin }: { loading: boolean; notice: string | null; update: AvailableUpdate | null; onDismissUpdate: () => void; onLogin: () => Promise<void> }) => <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" />{update ? <div className="update-banner login-update-banner" role="status"><div><strong>发现新版本 v{update.latestVersion}</strong><span>当前版本 v{update.currentVersion}</span></div><button className="primary-button" onClick={() => void window.lecpunchDesktop?.updates.openRelease()}>前往下载</button><button className="icon-button" onClick={onDismissUpdate} aria-label="暂时忽略更新"><X size={17} /></button></div> : null}<section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">使用 LEC SSO 登录；首次会打开系统浏览器，之后自动续期。</p>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading} onClick={() => void onLogin()}>{loading ? '正在连接...' : '使用 LEC SSO 登录'}<ArrowUpRight size={18} /></button></section></main>;
 
 const Sidebar = ({ active, open, onSelect, user, onLogout, immersive, onToggleImmersive }: { active: View; open: boolean; onSelect: (view: View) => void; user: ElectionUser; onLogout: () => void; immersive: boolean; onToggleImmersive: () => void }) => {
   const items: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
@@ -436,5 +449,5 @@ const QuickSchedule = ({ tasks, onClose, onSave }: { tasks: ScheduledTask[]; onC
     setDraftTitle(task.title);
     setDraftTime(task.time);
   };
-  return <div className="schedule-mask" role="dialog" aria-modal="true" aria-label="管理定时任务"><section className="schedule-dialog blue-card"><button className="schedule-close" onClick={onClose} aria-label="关闭"><X size={18} /></button><p className="eyebrow">SCHEDULE MANAGER</p><h2>定时提醒任务</h2><p>每个任务每天到点时都会显示 Windows 通知与小猫头顶消息。</p><div className="schedule-task-list">{tasks.length ? tasks.map((task) => <div className="schedule-task" key={task.id}><button className={`schedule-task-toggle ${task.enabled ? 'enabled' : ''}`} onClick={() => onSave(tasks.map((item) => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} aria-label={task.enabled ? '暂停任务' : '启用任务'}><i /></button><div><strong>{task.title}</strong><small>{task.time} · {task.enabled ? '已启用' : '已暂停'}</small></div><button onClick={() => beginEdit(task)}>修改</button><button className="schedule-remove" onClick={() => onSave(tasks.filter((item) => item.id !== task.id))}>取消</button></div>) : <p className="schedule-empty">还没有自定义提醒任务。</p>}</div><label>任务名称<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={24} autoFocus /></label><label>提醒时间<input value={draftTime} onChange={(event) => setDraftTime(event.target.value)} type="time" /></label><button className="primary-button" onClick={addOrUpdate}>{editingId ? '保存修改' : '创建并生效'} <BellRing size={17} /></button>{editingId ? <button className="schedule-cancel-edit" onClick={() => { setEditingId(null); setDraftTitle('专注提醒'); setDraftTime('20:30'); }}>取消修改</button> : null}</section></div>;
+  return <div className="schedule-mask" role="dialog" aria-modal="true" aria-label="管理定时任务"><section className="schedule-dialog blue-card"><button className="schedule-close" onClick={onClose} aria-label="关闭"><X size={18} /></button><p className="eyebrow">SCHEDULE MANAGER</p><h2>定时提醒任务</h2><p>每个任务每天到点时都会显示系统通知与小猫头顶消息。</p><div className="schedule-task-list">{tasks.length ? tasks.map((task) => <div className="schedule-task" key={task.id}><button className={`schedule-task-toggle ${task.enabled ? 'enabled' : ''}`} onClick={() => onSave(tasks.map((item) => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} aria-label={task.enabled ? '暂停任务' : '启用任务'}><i /></button><div><strong>{task.title}</strong><small>{task.time} · {task.enabled ? '已启用' : '已暂停'}</small></div><button onClick={() => beginEdit(task)}>修改</button><button className="schedule-remove" onClick={() => onSave(tasks.filter((item) => item.id !== task.id))}>取消</button></div>) : <p className="schedule-empty">还没有自定义提醒任务。</p>}</div><label>任务名称<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={24} autoFocus /></label><label>提醒时间<input value={draftTime} onChange={(event) => setDraftTime(event.target.value)} type="time" /></label><button className="primary-button" onClick={addOrUpdate}>{editingId ? '保存修改' : '创建并生效'} <BellRing size={17} /></button>{editingId ? <button className="schedule-cancel-edit" onClick={() => { setEditingId(null); setDraftTitle('专注提醒'); setDraftTime('20:30'); }}>取消修改</button> : null}</section></div>;
 };
