@@ -23,10 +23,9 @@ export class LogtoAuthService {
   private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
 
   constructor(
-    configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly usersService: UsersService,
-    private readonly teamsService: TeamsService,
-    private readonly configService: ConfigService
+    private readonly teamsService: TeamsService
   ) {
     this.endpoint = configService.getOrThrow<string>('LOGTO_ENDPOINT').replace(/\/$/, '');
     this.resource = configService.getOrThrow<string>('LOGTO_API_RESOURCE');

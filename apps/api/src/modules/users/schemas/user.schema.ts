@@ -57,6 +57,4 @@ export class User {
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
 
-UserSchema.index({ logtoUserId: 1 }, { unique: true, sparse: true });
-UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ teamId: 1, role: 1 });

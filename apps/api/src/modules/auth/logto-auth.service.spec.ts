@@ -39,7 +39,7 @@ const buildService = (overrides: Partial<Record<'findByLogtoUserId' | 'create' |
     getOrThrow: vi.fn((key: string) => values[key]),
     get: vi.fn((key: string, fallback?: string) => values[key] ?? fallback)
   };
-  const service = new LogtoAuthService(config as never, usersService as never, teamsService as never, config as never);
+  const service = new LogtoAuthService(config as never, usersService as never, teamsService as never);
   return { service, usersService, teamsService, user };
 };
 
