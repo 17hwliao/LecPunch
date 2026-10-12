@@ -12,7 +12,7 @@ const endpoint = (process.env.LECPUNCH_LOGTO_ENDPOINT || 'http://localhost:3001'
 const clientId = process.env.LECPUNCH_LOGTO_APP_ID || 'lecpunch-election';
 const resource = process.env.LECPUNCH_LOGTO_API_RESOURCE || 'https://api.lecpunch.lec.org';
 const organizationId = process.env.LECPUNCH_LOGTO_ORGANIZATION_ID || 'lec-studio';
-const scope = 'openid profile offline_access studio:access studio:admin:access';
+const scope = 'openid profile offline_access urn:logto:scope:organizations studio:access studio:admin:access';
 
 export class DesktopAuth {
   private accessToken?: string;
@@ -46,15 +46,32 @@ export class DesktopAuth {
       organization_id: organizationId,
       code_challenge: challenge,
       code_challenge_method: 'S256',
+      prompt: 'login consent',
       state
     }).forEach(([key, value]) => url.searchParams.set(key, value));
     await shell.openExternal(url.toString());
     try {
       const code = await callback;
       const tokens = await this.token(discovery.token_endpoint, {
-        grant_type: 'authorization_code', client_id: clientId, code, redirect_uri: redirectUri, code_verifier: verifier
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: verifier,
+        resource,
+        organization_id: organizationId
       });
-      this.acceptTokens(tokens);
+      const organizationTokens = tokens.refresh_token
+        ? await this.token(discovery.token_endpoint, {
+            grant_type: 'refresh_token',
+            client_id: clientId,
+            refresh_token: tokens.refresh_token,
+            scope,
+            resource,
+            organization_id: organizationId
+          })
+        : tokens;
+      this.acceptTokens(organizationTokens);
       return { authenticated: true };
     } finally {
       server.close();
