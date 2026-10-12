@@ -6,11 +6,11 @@ LecPunch 是一个团队打卡系统 monorepo。当前仓库已经收口到 V1.1
 
 当前已纳入范围的能力：
 
-- 用户名 / 密码登录，以及可开关的开放注册
+- Web 与 Election 桌面端统一使用 LEC SSO（OIDC Authorization Code + PKCE）
 - 以后端为真值的上卡 / 下卡业务规则
 - 当前打卡状态、我的记录、成员记录、个人周历史
 - 团队本周统计与同团队访问控制
-- 个人资料编辑与密码修改
+- LecPunch 展示资料编辑；密码和身份资料由 LEC SSO 统一管理
 - 后台成员管理
 - 后台网络策略管理
 - 后台团队记录 CSV 导出
@@ -72,9 +72,12 @@ Copy-Item apps/api/.env.example apps/api/.env
 关键变量说明：
 
 - `MONGODB_URI`：MongoDB 连接串
-- `AUTH_SECRET`：JWT 密钥，至少 16 位
-- `DEFAULT_TEAM_NAME`：注册和 seed 流程使用的默认团队名
-- `ALLOW_OPEN_REGISTRATION`：是否允许 `/auth/register`
+- `LOGTO_ENDPOINT`：LEC SSO 地址；生产环境必须使用 HTTPS
+- `LOGTO_API_RESOURCE`：LecPunch API audience，默认 `https://api.lecpunch.lec.org`
+- `LOGTO_ORGANIZATION_ID`：获准访问的 Logto Organization ID，默认 `lec-studio`
+- `AUTH_SECRET`：成员分享链接的 HMAC 密钥，至少 16 位（不用于登录 JWT）
+- `LECPUNCH_TEAM_ID`：生产环境建议固定为现有 Mongo 团队 ID
+- `DEFAULT_TEAM_NAME`：未配置团队 ID 时使用的默认团队名
 - `ALLOW_ANY_NETWORK`：设为 `false` 后才真正启用打卡网络白名单
 - `ALLOWED_PUBLIC_IPS`：逗号分隔的精确客户端 IP 白名单
 - `ALLOWED_CIDRS`：逗号分隔的 CIDR 白名单
@@ -84,7 +87,7 @@ Copy-Item apps/api/.env.example apps/api/.env
 本地演示建议保持：
 
 ```env
-ALLOW_OPEN_REGISTRATION=true
+LOGTO_ENDPOINT=http://localhost:3001
 ALLOW_ANY_NETWORK=true
 ```
 
@@ -98,17 +101,25 @@ ALLOW_ANY_NETWORK=true
 Copy-Item apps/web/.env.example apps/web/.env
 ```
 
-本地开发建议把 `VITE_API_BASE_URL` 留空，让 Vite 通过 `/api` 代理到 `http://localhost:4000`：
+本地开发让 Vite 通过 `/api` 代理到 API，并配置 LecPunch Web SPA：
 
 ```env
 VITE_API_BASE_URL=
+VITE_LOGTO_ENDPOINT=http://localhost:3001
+VITE_LOGTO_APP_ID=lecpunch-web
+VITE_LOGTO_RESOURCE=https://api.lecpunch.lec.org
+VITE_LOGTO_ORGANIZATION_ID=lec-studio
 ```
 
-只有在前端需要直连已部署 API 时，才填写完整地址。
+只有在前端需要直连已部署 API 时，才填写完整地址。生产环境的 API 与 SSO 均必须使用 HTTPS。
+
+### Election 桌面端
+
+复制 `apps/election/.env.example` 后配置 `LECPUNCH_API_BASE_URL` 与 `LECPUNCH_LOGTO_*`。桌面端通过系统浏览器完成 PKCE 登录，Refresh Token 仅由 Electron 主进程使用 `safeStorage` 加密保存，Access Token 只保留在内存并通过受限 IPC 获取。
 
 ## 种子数据
 
-API 工作区已经提供可重复执行的演示数据脚本：
+API 工作区保留可重复执行的业务演示数据脚本；这些旧本地密码账号不能用于 SSO 登录，仅用于非认证数据准备：
 
 ```powershell
 pnpm --filter @lecpunch/api seed
@@ -119,7 +130,7 @@ pnpm --filter @lecpunch/api seed
 - `demo-admin` / `123456`
 - `demo-member` / `123456`
 
-可用 `demo-admin` 验证后台入口：
+使用在 LEC SSO 中拥有 `studio:admin:access` 的 Captain 账号验证后台入口：
 
 - `/admin/members`
 - `/admin/network-policy`
