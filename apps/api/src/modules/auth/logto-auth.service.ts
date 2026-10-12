@@ -52,15 +52,33 @@ export class LogtoAuthService {
       throw this.unauthorized('仅 LEC Studio 成员可以访问 LecPunch');
     }
 
+    if (!claims.sub || typeof claims.sub !== 'string') throw this.unauthorized('SSO 账号标识无效');
+    const username = claims.username?.trim().toLowerCase();
+    if (!username || !/^[a-z0-9][a-z0-9._-]*$/.test(username)) {
+      throw this.unauthorized('SSO 账号缺少有效 Handle');
+    }
+    const studentId = claims.student_number?.trim();
+    if (!studentId || !/^\d{12}$/.test(studentId)) throw this.unauthorized('SSO 账号缺少有效学号');
+
     let user = await this.usersService.findByLogtoUserId(claims.sub);
     if (!user) {
-      const username = claims.username?.trim().toLowerCase();
-      if (!username) throw this.unauthorized('SSO 账号缺少 Handle');
-      const studentId = claims.student_number?.trim();
-      if (!studentId || !/^\d{4}/.test(studentId)) throw this.unauthorized('SSO 账号缺少有效学号');
-      const team = await this.teamsService.ensureDefaultTeam(
-        this.configService.get<string>('DEFAULT_TEAM_NAME', 'FocusTeam')
-      );
+      const legacyUser = await this.usersService.findByStudentId(studentId);
+      if (legacyUser) {
+        if (legacyUser.username.toLowerCase() !== username || legacyUser.logtoUserId) {
+          throw this.unauthorized('SSO 账号与现有 LecPunch 成员不匹配，请联系管理员');
+        }
+        user = await this.usersService.bindLogtoIdentity(legacyUser.id, claims.sub);
+        if (!user) throw this.unauthorized('LecPunch 成员绑定冲突，请重新登录');
+      }
+    }
+    if (!user) {
+      const configuredTeamId = this.configService.get<string>('LECPUNCH_TEAM_ID');
+      const team = configuredTeamId
+        ? await this.teamsService.findById(configuredTeamId)
+        : await this.teamsService.ensureDefaultTeam(
+            this.configService.get<string>('DEFAULT_TEAM_NAME', 'FocusTeam')
+          );
+      if (!team) throw this.unauthorized('LecPunch 业务团队配置无效');
       user = await this.usersService.create({
         logtoUserId: claims.sub,
         username,

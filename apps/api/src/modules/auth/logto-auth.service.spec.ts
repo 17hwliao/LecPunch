@@ -9,10 +9,14 @@ const memberClaims = {
   scope: 'studio:access',
   username: 'zhangsan.01',
   name: '张三',
-  student_number: '20230001'
+  student_number: '202300010001'
 };
 
-const buildService = (overrides: Partial<Record<'findByLogtoUserId' | 'create' | 'ensureDefaultTeam', ReturnType<typeof vi.fn>>> = {}) => {
+const buildService = (
+  overrides: Partial<
+    Record<'findByLogtoUserId' | 'findByStudentId' | 'bindLogtoIdentity' | 'create' | 'ensureDefaultTeam', ReturnType<typeof vi.fn>>
+  > = {}
+) => {
   const user = {
     id: 'mongo-user-1',
     username: 'zhangsan.01',
@@ -24,6 +28,8 @@ const buildService = (overrides: Partial<Record<'findByLogtoUserId' | 'create' |
   };
   const usersService = {
     findByLogtoUserId: overrides.findByLogtoUserId ?? vi.fn().mockResolvedValue(user),
+    findByStudentId: overrides.findByStudentId ?? vi.fn().mockResolvedValue(null),
+    bindLogtoIdentity: overrides.bindLogtoIdentity ?? vi.fn().mockResolvedValue(user),
     create: overrides.create ?? vi.fn().mockResolvedValue(user)
   };
   const teamsService = {
@@ -65,6 +71,28 @@ describe('LogtoAuthService', () => {
     await expect(service.resolveUser({ ...memberClaims, scope: 'openid' })).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('旧用户仅在学号和 Handle 同时匹配时绑定 Logto sub', async () => {
+    const legacyUser = {
+      id: 'mongo-legacy',
+      username: 'zhangsan.01',
+      displayName: '张三',
+      teamId: 'team-1',
+      role: 'member',
+      status: 'active',
+      enrollYear: 2023
+    };
+    const bindLogtoIdentity = vi.fn().mockResolvedValue(legacyUser);
+    const { service, usersService } = buildService({
+      findByLogtoUserId: vi.fn().mockResolvedValue(null),
+      findByStudentId: vi.fn().mockResolvedValue(legacyUser),
+      bindLogtoIdentity
+    });
+
+    await expect(service.resolveUser(memberClaims)).resolves.toMatchObject({ userId: 'mongo-legacy' });
+    expect(bindLogtoIdentity).toHaveBeenCalledWith('mongo-legacy', 'logto-user-1');
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
   it('首次登录按 Logto sub 创建本地业务用户', async () => {
     const create = vi.fn().mockImplementation(async (input) => ({ id: 'mongo-user-2', status: 'active', ...input }));
     const { service, usersService } = buildService({
@@ -82,7 +110,7 @@ describe('LogtoAuthService', () => {
       logtoUserId: 'logto-user-1',
       username: 'zhangsan.01',
       teamId: 'team-1',
-      studentId: '20230001',
+      studentId: '202300010001',
       realName: '张三'
     }));
   });

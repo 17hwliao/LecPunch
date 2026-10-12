@@ -105,6 +105,16 @@ export class UsersService {
     return this.userModel.findOne({ studentId }).exec();
   }
 
+  bindLogtoIdentity(userId: string, logtoUserId: string) {
+    return this.userModel
+      .findOneAndUpdate(
+        { _id: userId, logtoUserId: { $exists: false } },
+        { $set: { logtoUserId } },
+        { new: true }
+      )
+      .exec();
+  }
+
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<UserDocument> {
     const set: Record<string, unknown> = {};
     const unset: Record<string, 1> = {};
