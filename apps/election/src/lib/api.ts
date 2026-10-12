@@ -14,8 +14,6 @@ import type {
   MyWeeklyStatsResponse,
   NetworkPolicyStatus,
   PointsSummary,
-  ShopUnlockResponse,
-  ShopUnlocksResponse,
   ReportItem,
   TeamEventItem,
   TeamGitHubSourcesResponse,
@@ -105,8 +103,6 @@ let previewNotifications: ElectionNotification[] = [{
   createdAt: '2026-09-02T11:30:00.000Z',
   acknowledgedAt: null
 }];
-let previewShopPoints = 1840;
-const previewUnlockedSkinIds = new Set<string>();
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 export const isAdminPreviewSession = () => localStorage.getItem(ADMIN_PREVIEW_SESSION_KEY) === 'true';
@@ -226,32 +222,13 @@ export const fetchPoints = (week?: string) => {
   if (week && !ISO_WEEK_PATTERN.test(week)) return Promise.reject(new ApiError(400, '周格式应为 YYYY-Www，例如 2026-W36。'));
   const currentWeek = previewWeek(week);
   if (isAdminPreviewSession()) return Promise.resolve({
-    totalPoints: previewShopPoints,
+    totalPoints: 1840,
     week: currentWeek,
     weekPoints: 286,
     accrualRate: { focusedMinutes: 1, points: 1 },
     calculatedAt: '2026-09-02T12:00:00.000Z'
   } satisfies PointsSummary);
   return request<PointsSummary>(`/points/me${week ? `?week=${encodeURIComponent(week)}` : ''}`);
-};
-
-/** Server-backed unlock state; preview keeps its entire simulation in memory. */
-export const fetchShopUnlocks = () => isAdminPreviewSession()
-  ? Promise.resolve({ skinIds: [...previewUnlockedSkinIds] } satisfies ShopUnlocksResponse)
-  : request<ShopUnlocksResponse>('/shop/unlocks');
-
-export const unlockShopSkin = async (skinId: string) => {
-  if (!/^[a-z0-9][a-z0-9-]{0,63}$/i.test(skinId)) return Promise.reject(new ApiError(400, '皮肤标识无效。'));
-  if (isAdminPreviewSession()) {
-    const alreadyUnlocked = previewUnlockedSkinIds.has(skinId);
-    if (!alreadyUnlocked && previewShopPoints < 600) throw new ApiError(400, '积分不足 600，暂时无法解锁该皮肤。', 'SHOP_INSUFFICIENT_POINTS');
-    if (!alreadyUnlocked) {
-      previewUnlockedSkinIds.add(skinId);
-      previewShopPoints -= 600;
-    }
-    return { skinId, unlockedAt: new Date().toISOString(), alreadyUnlocked, pricePoints: 600, totalPoints: previewShopPoints } satisfies ShopUnlockResponse;
-  }
-  return request<ShopUnlockResponse>('/shop/unlock', { method: 'POST', body: JSON.stringify({ skinId }) });
 };
 
 export const fetchMyWeeklySummary = (week: string) => {

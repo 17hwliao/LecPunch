@@ -136,18 +136,6 @@ export interface PointsSummary {
   calculatedAt: string;
 }
 
-export interface ShopUnlocksResponse {
-  skinIds: string[];
-}
-
-export interface ShopUnlockResponse {
-  skinId: string;
-  unlockedAt: string;
-  alreadyUnlocked: boolean;
-  pricePoints: number;
-  totalPoints: number;
-}
-
 export interface AttendanceDaySummary {
   date: string;
   focusedMinutes: number;

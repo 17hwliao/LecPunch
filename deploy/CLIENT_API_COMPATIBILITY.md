@@ -17,27 +17,8 @@
 
 `GET /api/points/me?week=YYYY-Www` returns `totalPoints`, the requested ISO
 `week`, `weekPoints`, `accrualRate`, and `calculatedAt`. Ledger entries are
-signed: completed attendance earns one point per fully completed minute, while
-an approved shop purchase writes a negative entry. Both all-time and weekly
-totals are the sum of the same signed ledger field, so a skin purchase reduces
-the displayed balance immediately.
-
-## Skin shop (2026-09-06)
-
-- `GET /api/shop/unlocks` is JWT-authenticated and returns only the caller's
-  unlocked skin identifiers: `{ skinIds: string[] }`. It accepts no user or
-  team selector.
-- `POST /api/shop/unlock` is JWT-authenticated and accepts `{ skinId }`, where
-  `skinId` is a 1–64 character URL-safe identifier. A skin costs exactly `600`
-  points. The server reads the caller's signed ledger balance, writes one
-  `sourceType: "skin_unlock"` ledger entry with `points: -600`, and records the
-  caller's unlock in the new `skin_unlocks` collection.
-- Repeating the same request is idempotent: an existing unlock (or a recovered
-  pre-existing expense after an interrupted request) is returned without a
-  second charge. Insufficient balance returns HTTP 400 with
-  `code: "SHOP_INSUFFICIENT_POINTS"` and the required/current point values.
-- Unlocks are member-scoped. The client must treat the built-in white cat as
-  free and must not call the purchase endpoint for it.
+completed attendance earns one point per fully completed minute. Both all-time
+and weekly totals are the sum of the same ledger field.
 
 ## Public GitHub blog sources (2026-09-03)
 

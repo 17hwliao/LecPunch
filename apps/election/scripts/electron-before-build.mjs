@@ -1,7 +1,5 @@
-// The renderer is fully bundled by Vite. The only native main-process module
-// required at runtime is explicitly listed in package.json's build.files.
-// Avoid package-manager tree discovery here: this workspace uses pnpm links,
-// while Electron Builder otherwise falls back to a host npm that may not exist.
+// Renderer and Electron main process are fully bundled/compiled into the app.
+// Skip package-manager dependency-tree discovery for this pnpm workspace.
 export default async function beforeBuild() {
   return false;
 }
