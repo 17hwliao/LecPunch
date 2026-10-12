@@ -24,12 +24,14 @@ export const LogtoSession = ({ children }: { children: React.ReactNode }) => {
   }, [getAccessToken, signOut]);
 
   useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       setAuth({ token: null, user: null });
       setAuthInitializing(false);
-      return;
     }
+  }, [isAuthenticated, isLoading, setAuth, setAuthInitializing]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
 
     let cancelled = false;
     setAuthInitializing(true);
@@ -47,7 +49,7 @@ export const LogtoSession = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [getAccessToken, isAuthenticated, isLoading, setAuth, setAuthInitializing]);
+  }, [getAccessToken, isAuthenticated, setAuth, setAuthInitializing]);
 
   return children;
 };
