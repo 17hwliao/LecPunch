@@ -133,7 +133,13 @@ const dispatchAuthExpired = () => {
 };
 
 const requestResponse = async (path: string, init: RequestInit = {}, mayRetry = true): Promise<Response> => {
-  const token = isAdminPreviewSession() ? undefined : await window.lecpunchDesktop?.auth.getAccessToken();
+  let token: string | undefined;
+  try {
+    token = isAdminPreviewSession() ? undefined : await window.lecpunchDesktop?.auth.getAccessToken();
+  } catch {
+    dispatchAuthExpired();
+    throw new ApiError(401, '登录已失效，请重新登录。');
+  }
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const usesFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;

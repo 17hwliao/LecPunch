@@ -157,7 +157,19 @@ export const App = () => {
   };
 
   useEffect(() => {
-    void getAuthStatus().then(({ authenticated }) => authenticated ? refresh() : setLoading(false));
+    let active = true;
+    void getAuthStatus()
+      .then(({ authenticated }) => {
+        if (!active) return;
+        if (authenticated) return refresh();
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setLoading(false);
+        setNotice(error instanceof Error ? error.message : '无法读取登录状态。');
+      });
+    return () => { active = false; };
   }, []);
   useEffect(() => {
     const handleExpired = () => {
