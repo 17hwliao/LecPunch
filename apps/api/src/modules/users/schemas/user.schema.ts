@@ -4,11 +4,14 @@ import { UserRole, UserStatus } from '@lecpunch/shared';
 
 @Schema({ timestamps: true, collection: 'users' })
 export class User {
+  @Prop({ type: String, unique: true, sparse: true, index: true })
+  logtoUserId?: string;
+
   @Prop({ required: true, type: String, unique: true, index: true })
   username!: string;
 
-  @Prop({ required: true, type: String })
-  passwordHash!: string;
+  @Prop({ type: String })
+  passwordHash?: string;
 
   @Prop({ required: true, type: String })
   displayName!: string;
@@ -54,5 +57,6 @@ export class User {
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
 
+UserSchema.index({ logtoUserId: 1 }, { unique: true, sparse: true });
 UserSchema.index({ username: 1 }, { unique: true });
 UserSchema.index({ teamId: 1, role: 1 });

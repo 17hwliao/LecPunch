@@ -11,8 +11,9 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 import { PointsService } from '../points/points.service';
 
 export interface CreateUserInput {
+  logtoUserId?: string;
   username: string;
-  passwordHash: string;
+  passwordHash?: string;
   displayName: string;
   teamId: string;
   role?: UserRole;
@@ -52,6 +53,10 @@ export class UsersService {
 
   findByUsername(username: string) {
     return this.userModel.findOne({ username }).exec();
+  }
+
+  findByLogtoUserId(logtoUserId: string) {
+    return this.userModel.findOne({ logtoUserId }).exec();
   }
 
   findById(id: string) {
@@ -137,6 +142,9 @@ export class UsersService {
     const user = await this.userModel.findById(userId).exec();
     if (!user) throw new NotFoundException('User not found');
 
+    if (!user.passwordHash) {
+      throw new BadRequestException({ code: 'SSO_MANAGED_PASSWORD', message: '请在 LEC SSO 中修改密码' });
+    }
     const valid = await bcrypt.compare(oldPassword, user.passwordHash);
     if (!valid) {
       throw new BadRequestException({ code: 'WRONG_PASSWORD', message: '当前密码不正确' });

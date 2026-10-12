@@ -47,7 +47,9 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   PORT: Joi.number().default(4000),
   MONGODB_URI: Joi.string().uri().required(),
-  AUTH_SECRET: Joi.string().min(16).required(),
+  LOGTO_ENDPOINT: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  LOGTO_API_RESOURCE: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  LOGTO_ORGANIZATION_ID: Joi.string().default('lec-studio'),
   MEET_JWT_APP_ID: Joi.string().pattern(/^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/).required(),
   MEET_JWT_SECRET: Joi.string().min(32).required(),
   DEFAULT_TEAM_NAME: Joi.string().default('FocusTeam'),
@@ -70,14 +72,9 @@ export const validationSchema = Joi.object({
       return helpers.error('network.allowlistRequired');
     }
 
-    if (value.MEET_JWT_SECRET === value.AUTH_SECRET) {
-      return helpers.error('meet.secretMustDiffer');
-    }
-
     return value;
   })
   .messages({
     'network.allowlistRequired':
-      'ALLOWED_PUBLIC_IPS or ALLOWED_CIDRS must be configured when ALLOW_ANY_NETWORK=false',
-    'meet.secretMustDiffer': 'MEET_JWT_SECRET must differ from AUTH_SECRET'
+      'ALLOWED_PUBLIC_IPS or ALLOWED_CIDRS must be configured when ALLOW_ANY_NETWORK=false'
   });
