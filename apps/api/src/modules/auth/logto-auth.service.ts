@@ -28,7 +28,8 @@ export class LogtoAuthService {
   constructor(
     configService: ConfigService,
     private readonly usersService: UsersService,
-    private readonly teamsService: TeamsService
+    private readonly teamsService: TeamsService,
+    private readonly configService: ConfigService
   ) {
     this.endpoint = configService.getOrThrow<string>('LOGTO_ENDPOINT').replace(/\/$/, '');
     this.resource = configService.getOrThrow<string>('LOGTO_API_RESOURCE');
@@ -60,14 +61,17 @@ export class LogtoAuthService {
       const username = claims.username?.trim().toLowerCase();
       if (!username) throw this.unauthorized('SSO 账号缺少 Handle');
       const studentId = claims.custom_data?.studentNumber?.trim();
-      const team = await this.teamsService.ensureDefaultTeam('LEC Studio');
+      if (!studentId || !/^\d{4}/.test(studentId)) throw this.unauthorized('SSO 账号缺少有效学号');
+      const team = await this.teamsService.ensureDefaultTeam(
+        this.configService.get<string>('DEFAULT_TEAM_NAME', 'FocusTeam')
+      );
       user = await this.usersService.create({
         logtoUserId: claims.sub,
         username,
         displayName: claims.name?.trim() || claims.custom_data?.realName?.trim() || username,
         teamId: team.id,
         role: 'member',
-        enrollYear: studentId && /^\d{4}/.test(studentId) ? Number(studentId.slice(0, 4)) : new Date().getFullYear(),
+        enrollYear: Number(studentId.slice(0, 4)),
         studentId,
         realName: claims.custom_data?.realName?.trim()
       });

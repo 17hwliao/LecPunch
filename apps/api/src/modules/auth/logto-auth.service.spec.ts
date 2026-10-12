@@ -29,14 +29,17 @@ const buildService = (overrides: Partial<Record<'findByLogtoUserId' | 'create' |
   const teamsService = {
     ensureDefaultTeam: overrides.ensureDefaultTeam ?? vi.fn().mockResolvedValue({ id: 'team-1' })
   };
-  const config = {
-    getOrThrow: vi.fn((key: string) => ({
-      LOGTO_ENDPOINT: 'http://localhost:3001',
-      LOGTO_API_RESOURCE: 'https://api.lecpunch.lec.org',
-      LOGTO_ORGANIZATION_ID: 'lec-studio'
-    })[key])
+  const values: Record<string, string> = {
+    LOGTO_ENDPOINT: 'http://localhost:3001',
+    LOGTO_API_RESOURCE: 'https://api.lecpunch.lec.org',
+    LOGTO_ORGANIZATION_ID: 'lec-studio',
+    DEFAULT_TEAM_NAME: 'FocusTeam'
   };
-  const service = new LogtoAuthService(config as never, usersService as never, teamsService as never);
+  const config = {
+    getOrThrow: vi.fn((key: string) => values[key]),
+    get: vi.fn((key: string, fallback?: string) => values[key] ?? fallback)
+  };
+  const service = new LogtoAuthService(config as never, usersService as never, teamsService as never, config as never);
   return { service, usersService, teamsService, user };
 };
 

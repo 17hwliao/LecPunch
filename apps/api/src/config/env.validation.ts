@@ -50,6 +50,7 @@ export const validationSchema = Joi.object({
   LOGTO_ENDPOINT: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
   LOGTO_API_RESOURCE: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
   LOGTO_ORGANIZATION_ID: Joi.string().default('lec-studio'),
+  AUTH_SECRET: Joi.string().min(16).required(),
   MEET_JWT_APP_ID: Joi.string().pattern(/^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/).required(),
   MEET_JWT_SECRET: Joi.string().min(32).required(),
   DEFAULT_TEAM_NAME: Joi.string().default('FocusTeam'),
