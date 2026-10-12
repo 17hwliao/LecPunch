@@ -12,10 +12,7 @@ export interface LogtoAccessTokenClaims extends JWTPayload {
   scope?: string;
   username?: string;
   name?: string;
-  custom_data?: {
-    studentNumber?: string;
-    realName?: string;
-  };
+  student_number?: string;
 }
 
 @Injectable()
@@ -60,7 +57,7 @@ export class LogtoAuthService {
     if (!user) {
       const username = claims.username?.trim().toLowerCase();
       if (!username) throw this.unauthorized('SSO 账号缺少 Handle');
-      const studentId = claims.custom_data?.studentNumber?.trim();
+      const studentId = claims.student_number?.trim();
       if (!studentId || !/^\d{4}/.test(studentId)) throw this.unauthorized('SSO 账号缺少有效学号');
       const team = await this.teamsService.ensureDefaultTeam(
         this.configService.get<string>('DEFAULT_TEAM_NAME', 'FocusTeam')
@@ -68,12 +65,12 @@ export class LogtoAuthService {
       user = await this.usersService.create({
         logtoUserId: claims.sub,
         username,
-        displayName: claims.name?.trim() || claims.custom_data?.realName?.trim() || username,
+        displayName: claims.name?.trim() || username,
         teamId: team.id,
         role: 'member',
         enrollYear: Number(studentId.slice(0, 4)),
         studentId,
-        realName: claims.custom_data?.realName?.trim()
+        realName: claims.name?.trim()
       });
     }
 

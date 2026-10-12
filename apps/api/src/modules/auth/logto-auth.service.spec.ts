@@ -9,7 +9,7 @@ const memberClaims = {
   scope: 'studio:access',
   username: 'zhangsan.01',
   name: '张三',
-  custom_data: { studentNumber: '20230001', realName: '张三' }
+  student_number: '20230001'
 };
 
 const buildService = (overrides: Partial<Record<'findByLogtoUserId' | 'create' | 'ensureDefaultTeam', ReturnType<typeof vi.fn>>> = {}) => {

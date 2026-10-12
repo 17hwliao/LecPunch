@@ -32,7 +32,7 @@ export class DesktopAuth {
     const state = randomBytes(32).toString('base64url');
     const verifier = randomBytes(64).toString('base64url');
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const callbackPath = `/oauth/callback/${randomBytes(16).toString('hex')}`;
+    const callbackPath = '/oauth/callback';
     const { server, callback } = await this.listenForCallback(callbackPath, state);
     this.pendingServer = server;
     const redirectUri = `http://127.0.0.1:${(server.address() as { port: number }).port}${callbackPath}`;
