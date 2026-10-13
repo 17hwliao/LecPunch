@@ -53,7 +53,7 @@ export const validationSchema = Joi.object({
   AUTH_SECRET: Joi.string().min(16).required(),
   MEET_JWT_APP_ID: Joi.string().pattern(/^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/).required(),
   MEET_JWT_SECRET: Joi.string().min(32).required(),
-  LECPUNCH_TEAM_ID: Joi.string().pattern(/^[a-f\d]{24}$/i).optional(),
+  LECPUNCH_TEAM_ID: Joi.string().pattern(/^[a-f\d]{24}$/i).allow('').optional(),
   DEFAULT_TEAM_NAME: Joi.string().default('FocusTeam'),
   ALLOW_OPEN_REGISTRATION: Joi.boolean().truthy('true').falsy('false').default(true),
   ATTENDANCE_BALANCED_ACCOUNTING_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
