@@ -12,7 +12,7 @@
     "package:mac": "pnpm build && electron-builder --mac dmg zip --arm64 --x64 --publish never",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -b",
-    "test": "tsc electron/version.ts electron/version.test.ts --module commonjs --target ES2022 --esModuleInterop --skipLibCheck --outDir .test-tmp && node .test-tmp/version.test.js && rm -rf .test-tmp",
+    "test": "tsc electron/version.ts electron/version.test.ts electron/auth.ts electron/auth.test.ts --module commonjs --target ES2022 --esModuleInterop --skipLibCheck --outDir .test-tmp && node .test-tmp/version.test.js && node --test .test-tmp/auth.test.js && rm -rf .test-tmp",
     "start": "node ./node_modules/electron/cli.js ."
   },
   "dependencies": {

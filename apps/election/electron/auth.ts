@@ -66,7 +66,7 @@ export class DesktopAuth {
             grant_type: 'refresh_token',
             client_id: clientId,
             refresh_token: tokens.refresh_token,
-            scope,
+            // 沿用刷新凭证已获批的权限；初始请求的管理员 scope 可能未获授权。
             resource,
             organization_id: organizationId
           })
@@ -118,7 +118,7 @@ export class DesktopAuth {
     try {
       const tokens = await this.token((await this.discovery()).token_endpoint, {
         grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken,
-        scope, resource, organization_id: organizationId
+        resource, organization_id: organizationId
       });
       this.acceptTokens(tokens);
       return tokens.access_token;
