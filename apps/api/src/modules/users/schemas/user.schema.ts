@@ -44,6 +44,10 @@ export class User {
   @Prop({ type: String })
   realName?: string;
 
+  /** LecSSO 签名身份资料中的头像地址。 */
+  @Prop({ type: String })
+  avatarUrl?: string;
+
   @Prop({ type: String })
   avatarBase64?: string;
 

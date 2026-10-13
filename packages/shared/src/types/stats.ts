@@ -15,10 +15,12 @@ export interface WeeklyStatItem {
 export interface TeamWeeklyStatItem extends WeeklyStatItem {
   memberKey: string;
   displayName: string;
+  username?: string;
   realName?: string;
   role: 'member' | 'admin';
   enrollYear: number;
   avatarColor?: string;
   avatarEmoji?: string;
+  avatarUrl?: string;
   avatarBase64?: string;
 }

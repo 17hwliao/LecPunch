@@ -15,5 +15,14 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  // 与 Web 端一致，兼容共享包的 CommonJS 产物。
+  optimizeDeps: {
+    include: ['@lecpunch/shared']
+  },
+  build: {
+    commonjsOptions: {
+      include: [/@lecpunch\/shared/, /node_modules/]
+    }
   }
 });

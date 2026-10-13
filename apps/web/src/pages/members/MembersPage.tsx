@@ -1,3 +1,4 @@
+import { formatMemberName } from '@lecpunch/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Search, X } from 'lucide-react';
@@ -170,7 +171,7 @@ export const MembersPage = () => {
           return true;
         }
 
-        return [member.displayName, member.realName]
+        return [member.displayName, member.realName, member.username]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(normalizedSearch));
       })
@@ -259,12 +260,12 @@ export const MembersPage = () => {
             size="sm"
             avatarColor={row.avatarColor}
             avatarEmoji={row.avatarEmoji}
+            avatarUrl={row.avatarUrl}
             avatarBase64={row.avatarBase64}
           />
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-gray-900">
-              {row.displayName}
-              {row.realName ? <span className="text-gray-500">（{row.realName}）</span> : null}
+              {formatMemberName(row)}
             </div>
           </div>
         </div>

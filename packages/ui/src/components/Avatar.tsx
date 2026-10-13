@@ -34,6 +34,8 @@ interface AvatarProps extends VariantProps<typeof avatarVariants> {
   name: string;
   className?: string;
   avatarBase64?: string;
+  /** SSO 头像优先于旧版应用内头像。 */
+  avatarUrl?: string;
   avatarEmoji?: string;
   avatarColor?: string;
 }
@@ -44,13 +46,14 @@ export function Avatar({
   size,
   className,
   avatarBase64,
+  avatarUrl,
   avatarEmoji,
   avatarColor,
 }: AvatarProps) {
   const fallbackLetter = name?.[0]?.toUpperCase() ?? '?';
 
   // Priority 1: image (uploaded base64 or src)
-  const imgSrc = avatarBase64 || src;
+  const imgSrc = avatarUrl || avatarBase64 || src;
   if (imgSrc) {
     return (
       <div className={cn(avatarVariants({ size }), className)}>

@@ -53,6 +53,8 @@ describe('MembersPage', () => {
         memberKey: 'member-key-1',
         displayName: 'Alice',
         realName: 'Alice Zhang',
+        username: 'alice.handle',
+        avatarUrl: 'https://sso.example.com/avatar.png',
         role: 'member',
         enrollYear: 2024,
         totalDurationSeconds: 7200,
@@ -67,8 +69,8 @@ describe('MembersPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/^Alice$/i)).toBeInTheDocument();
-    expect(screen.getByText('（Alice Zhang）')).toBeInTheDocument();
+    expect(await screen.findByText('Alice Zhang（alice.handle）')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Alice' })).toHaveAttribute('src', 'https://sso.example.com/avatar.png');
     expect(screen.getByText(/02:00:00/i)).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: /2024 级/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '筛选' })).toBeInTheDocument();

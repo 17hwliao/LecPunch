@@ -1,3 +1,4 @@
+import { formatMemberName } from '@lecpunch/shared';
 import { memo } from 'react';
 import { Users } from 'lucide-react';
 import { Avatar, Badge, Button } from '@lecpunch/ui';
@@ -38,11 +39,12 @@ const DashboardTeamWidgetComponent = () => {
                     className="mr-3"
                     avatarColor={member.avatarColor}
                     avatarEmoji={member.avatarEmoji}
+                    avatarUrl={member.avatarUrl}
                     avatarBase64={member.avatarBase64}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 truncate text-sm font-bold text-gray-900">
-                      <span className="truncate">{member.displayName}</span>
+                      <span className="truncate">{formatMemberName(member)}</span>
                       {member.adjustmentsCount > 0 ? <Badge variant="warning">含调整</Badge> : null}
                     </div>
                     <div className="mt-0.5 text-xs text-gray-500">周累计：{formatDuration(member.totalDurationSeconds)}</div>

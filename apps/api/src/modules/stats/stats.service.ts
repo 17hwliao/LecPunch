@@ -110,6 +110,8 @@ export class StatsService {
           adjustmentsCount: adjustmentSummary?.adjustmentsCount ?? 0,
           sessionsCount: stats?.sessionsCount ?? 0,
           displayName: member.displayName,
+          username: member.username,
+          avatarUrl: member.avatarUrl,
           realName: member.realName,
           role: member.role,
           enrollYear: member.enrollYear,

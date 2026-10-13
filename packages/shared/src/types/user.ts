@@ -13,6 +13,7 @@ export interface User {
   updatedAt: string;
   studentId?: string;
   realName?: string;
+  avatarUrl?: string;
   avatarBase64?: string;
   avatarColor?: string;
   avatarEmoji?: string;

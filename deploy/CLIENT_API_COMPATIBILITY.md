@@ -88,3 +88,10 @@ or meeting data.
 
 The captain machine must hold the same `MEET_JWT_APP_ID` and
 `MEET_JWT_SECRET`; these values are never interchangeable with `AUTH_SECRET`.
+
+## LecSSO 身份展示（2026-10-14）
+
+- LecSSO 对 `lecpunch-web`、`lecpunch-election` 的已签名访问令牌补充 `picture: user.avatar ?? null`，沿用 `username`、`name`、`student_number`。
+- API 在验签后同步 Handle、真名和 `avatarUrl`，不改变成员 ID、团队、角色及打卡归属；资料未变化时不写数据库。旧令牌缺少 `picture` 时保留缓存，显式 `null` 时移除缓存。
+- 当前用户和团队统计增加可选 `avatarUrl`；团队统计、正在打卡列表增加可选 `username`。两端统一使用真名（Handle）展示，SSO 头像优先于旧应用头像。
+- 桌面端通过 HTTPS 加载 SSO 头像；自定义背景继续使用本机资源协议。旧 API 缺少新增字段时保留名称和头像回退。

@@ -13,6 +13,7 @@ export interface LogtoAccessTokenClaims extends JWTPayload {
   username?: string;
   name?: string;
   student_number?: string;
+  picture?: string | null;
 }
 
 @Injectable()
@@ -60,6 +61,17 @@ export class LogtoAuthService {
     const studentId = claims.student_number?.trim();
     if (!studentId || !/^\d{12}$/.test(studentId)) throw this.unauthorized('SSO 账号缺少有效学号');
 
+    const realName = typeof claims.name === 'string' ? claims.name.trim() : undefined;
+    // 图片地址来自已验签的 SSO claim；不接受脚本或内联数据地址。
+    let avatarUrl: string | null | undefined;
+    if (claims.picture === null) avatarUrl = null;
+    else if (typeof claims.picture === 'string') {
+      try {
+        const url = new URL(claims.picture);
+        if (url.protocol === 'https:' || url.protocol === 'http:') avatarUrl = url.href;
+      } catch { /* 不合法的头像地址不覆盖现有资料。 */ }
+    }
+
     let user = await this.usersService.findByLogtoUserId(claims.sub);
     if (!user) {
       const legacyUser = await this.usersService.findByStudentId(studentId);
@@ -87,18 +99,20 @@ export class LogtoAuthService {
         role: 'member',
         enrollYear: Number(studentId.slice(0, 4)),
         studentId,
-        realName: claims.name?.trim()
+        realName,
+        avatarUrl: avatarUrl ?? undefined
       });
     }
 
     if (user.status !== 'active') throw this.unauthorized('账号已停用', ERROR_CODES.USER_DISABLED);
+    const identityUser = await this.usersService.syncLogtoProfile(user, { username, realName, avatarUrl });
     return {
-      userId: user.id,
-      teamId: user.teamId,
+      userId: identityUser.id,
+      teamId: identityUser.teamId,
       role: scopes.has('studio:admin:access') ? 'admin' : 'member',
-      username: user.username,
-      displayName: user.displayName,
-      enrollYear: user.enrollYear
+      username: identityUser.username,
+      displayName: identityUser.displayName,
+      enrollYear: identityUser.enrollYear
     };
   }
 

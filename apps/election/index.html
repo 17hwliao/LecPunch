@@ -4,10 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b1020" />
-    <!-- Renderer images are either bundled, data/blob previews, or the
-         allow-listed local asset protocol. In particular, a chosen backdrop
-         can never turn a remote URL into a renderer request. -->
-    <meta http-equiv="Content-Security-Policy" content="img-src 'self' data: blob: lecpunch-assets:;" />
+    <!-- LecSSO 头像通过 HTTPS 加载；自定义背景仍从本机文件导入，
+         通过专用本地资源协议展示。 -->
+    <meta http-equiv="Content-Security-Policy" content="img-src 'self' data: blob: lecpunch-assets: https:;" />
     <title>LecPunch Election</title>
   </head>
   <body>

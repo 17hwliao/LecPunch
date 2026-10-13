@@ -76,6 +76,7 @@ export const ProfilePage = () => {
         <Avatar
           name={user?.displayName ?? '用户'}
           size="lg"
+          avatarUrl={user?.avatarUrl}
           avatarBase64={user?.avatarBase64}
           avatarEmoji={user?.avatarEmoji}
           avatarColor={user?.avatarColor}
@@ -83,9 +84,9 @@ export const ProfilePage = () => {
         />
         <div>
           <p className="text-sm text-gray-500 mb-2">头像</p>
-          <Button variant="outline" size="sm" onClick={() => setShowAvatarEditor(true)}>
+          {user?.avatarUrl ? <p className="text-sm text-gray-500">由 LecSSO 统一管理</p> : <Button variant="outline" size="sm" onClick={() => setShowAvatarEditor(true)}>
             更换头像
-          </Button>
+          </Button>}
         </div>
       </div>
 

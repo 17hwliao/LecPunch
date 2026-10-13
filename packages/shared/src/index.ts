@@ -10,3 +10,4 @@ export * from './types/team-ledger';
 export * from './constants/time';
 export * from './constants/errors';
 export * from './utils/enroll';
+export * from './utils/member-name';

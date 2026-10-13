@@ -1,3 +1,4 @@
+import { formatMemberName } from '@lecpunch/shared';
 import { useEffect, useState } from 'react';
 import { Wifi, WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -107,14 +108,15 @@ export const AppHeader = () => {
         onClick={() => navigate('/profile')}
       >
         <Avatar
-          name={user?.displayName ?? '用户'}
+          name={user ? formatMemberName(user) : '用户'}
           size="sm"
+          avatarUrl={user?.avatarUrl}
           avatarBase64={user?.avatarBase64}
           avatarEmoji={user?.avatarEmoji}
           avatarColor={user?.avatarColor}
         />
         <span className="text-sm font-medium text-gray-700 hidden md:block">
-          {user?.displayName ?? '用户'}
+          {user ? formatMemberName(user) : '用户'}
         </span>
       </div>
     </header>

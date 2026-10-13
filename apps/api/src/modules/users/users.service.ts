@@ -20,6 +20,7 @@ export interface CreateUserInput {
   enrollYear: number;
   studentId?: string;
   realName?: string;
+  avatarUrl?: string;
 }
 
 export interface UpdateProfileInput {
@@ -113,6 +114,22 @@ export class UsersService {
         { new: true }
       )
       .exec();
+  }
+
+  /** 仅同步经过 Logto 验签的身份资料；资料未变时不写数据库。 */
+  async syncLogtoProfile(user: UserDocument, profile: { username: string; realName?: string; avatarUrl?: string | null }) {
+    const set: Record<string, string> = {};
+    if (user.username !== profile.username) set.username = profile.username;
+    if (profile.realName !== undefined && user.realName !== profile.realName) set.realName = profile.realName;
+    if (profile.avatarUrl && user.avatarUrl !== profile.avatarUrl) set.avatarUrl = profile.avatarUrl;
+    const removeAvatar = profile.avatarUrl === null && Boolean(user.avatarUrl);
+    if (Object.keys(set).length === 0 && !removeAvatar) return user;
+    const updated = await this.userModel.findByIdAndUpdate(user.id, {
+      $set: set,
+      ...(removeAvatar ? { $unset: { avatarUrl: 1 } } : {})
+    }, { new: true }).exec();
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<UserDocument> {

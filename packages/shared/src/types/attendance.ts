@@ -28,9 +28,12 @@ export interface AttendanceSession {
 export interface TeamActiveAttendanceItem {
   memberKey: string;
   displayName: string;
+  username?: string;
+  realName?: string;
   enrollYear: number;
   avatarColor?: string;
   avatarEmoji?: string;
+  avatarUrl?: string;
   avatarBase64?: string;
   checkInAt: string;
   elapsedSeconds: number;
