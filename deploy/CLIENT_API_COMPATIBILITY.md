@@ -95,3 +95,10 @@ The captain machine must hold the same `MEET_JWT_APP_ID` and
 - API 在验签后同步 Handle、真名和 `avatarUrl`，不改变成员 ID、团队、角色及打卡归属；资料未变化时不写数据库。旧令牌缺少 `picture` 时保留缓存，显式 `null` 时移除缓存。
 - 当前用户和团队统计增加可选 `avatarUrl`；团队统计、正在打卡列表增加可选 `username`。两端统一使用真名（Handle）展示，SSO 头像优先于旧应用头像。
 - 桌面端通过 HTTPS 加载 SSO 头像；自定义背景继续使用本机资源协议。旧 API 缺少新增字段时保留名称和头像回退。
+
+## 统一用户契约（2026-10-14）
+
+- `packages/shared` 导出 `LecUser`：`lecUserId`、`username`、`name`、`avatar`、`studentNumber`。身份 ID 对应 Logto id / OIDC sub，未绑定 SSO 的旧成员明确为 `null`。
+- `User extends LecUser` 补充 LecPunch 业务 ID、团队、显示名称、入学年份、本应用权限和成员状态；桌面端 `ElectionUser` 直接引用此类型。打卡记录、成员管理及所有外键继续使用原有业务 ID。
+- 当前用户、资料修改和管理成员接口共用一处响应映射；新调用方统一读取身份字段，响应暂时保留 `realName`、`avatarUrl`、`studentId` 供旧客户端兼容。
+- `auth/me` 沿用不返回业务时间戳的契约，因此共享类型中的时间戳为可选；资料修改后继续使用当前 token 的权限投影。

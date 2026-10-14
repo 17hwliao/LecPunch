@@ -35,7 +35,7 @@ interface AvatarProps extends VariantProps<typeof avatarVariants> {
   className?: string;
   avatarBase64?: string;
   /** SSO 头像优先于旧版应用内头像。 */
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   avatarEmoji?: string;
   avatarColor?: string;
 }

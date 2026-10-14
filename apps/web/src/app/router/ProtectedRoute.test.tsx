@@ -1,3 +1,4 @@
+import { createUserFixture } from '@/test/user-fixture';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -38,7 +39,7 @@ describe('ProtectedRoute', () => {
     useAuthStore.setState({
       auth: {
         token: 'token-1',
-        user: {
+        user: createUserFixture({
           id: 'user-1',
           teamId: 'team-1',
           username: 'alice',
@@ -48,7 +49,7 @@ describe('ProtectedRoute', () => {
           enrollYear: 2024,
           createdAt: '2026-04-01T00:00:00.000Z',
           updatedAt: '2026-04-01T00:00:00.000Z'
-        }
+        })
       }
     });
 

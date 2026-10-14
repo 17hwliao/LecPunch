@@ -1,3 +1,4 @@
+export * from './types/lec-user';
 export * from './types/user';
 export * from './types/team';
 export * from './types/attendance';

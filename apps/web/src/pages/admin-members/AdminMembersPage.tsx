@@ -47,7 +47,7 @@ export const AdminMembersPage = () => {
     }
 
     return members.filter((member) =>
-      [member.displayName, member.username, member.realName, member.studentId]
+      [member.displayName, member.username, member.name, member.studentNumber]
         .filter(Boolean)
         .some((field) => field!.toLowerCase().includes(normalizedSearch))
     );
@@ -113,8 +113,8 @@ export const AdminMembersPage = () => {
           </div>
           <div className="mt-1 text-xs text-gray-500">
             @{row.username}
-            {row.realName ? ` · ${row.realName}` : ''}
-            {row.studentId ? ` · ${row.studentId}` : ''}
+            {row.name ? ` · ${row.name}` : ''}
+            {row.studentNumber ? ` · ${row.studentNumber}` : ''}
           </div>
         </div>
       )

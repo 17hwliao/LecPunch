@@ -14,7 +14,7 @@ const memberClaims = {
 
 const buildService = (
   overrides: Partial<
-    Record<'findByLogtoUserId' | 'findByStudentId' | 'bindLogtoIdentity' | 'create' | 'syncLogtoProfile' | 'ensureDefaultTeam', ReturnType<typeof vi.fn>>
+    Record<'findByLogtoUserId' | 'findByStudentId' | 'bindLogtoIdentity' | 'create' | 'syncLecProfile' | 'ensureDefaultTeam', ReturnType<typeof vi.fn>>
   > = {}
 ) => {
   const user = {
@@ -31,7 +31,7 @@ const buildService = (
     findByStudentId: overrides.findByStudentId ?? vi.fn().mockResolvedValue(null),
     bindLogtoIdentity: overrides.bindLogtoIdentity ?? vi.fn().mockResolvedValue(user),
     create: overrides.create ?? vi.fn().mockResolvedValue(user),
-    syncLogtoProfile: overrides.syncLogtoProfile ?? vi.fn().mockImplementation(async (user) => user)
+    syncLecProfile: overrides.syncLecProfile ?? vi.fn().mockImplementation(async (user) => user)
   };
   const teamsService = {
     ensureDefaultTeam: overrides.ensureDefaultTeam ?? vi.fn().mockResolvedValue({ id: 'team-1' })
@@ -118,15 +118,15 @@ describe('LogtoAuthService', () => {
   it('将签名中的 SSO 真名和头像同步到现有成员，并保留本地业务状态', async () => {
     const { service, usersService, user } = buildService();
     await service.resolveUser({ ...memberClaims, name: '张三丰', picture: 'https://sso.example.com/lec-assets/avatar.png' });
-    expect(usersService.syncLogtoProfile).toHaveBeenCalledWith(user, {
-      username: 'zhangsan.01', realName: '张三丰', avatarUrl: 'https://sso.example.com/lec-assets/avatar.png'
+    expect(usersService.syncLecProfile).toHaveBeenCalledWith(user, {
+      username: 'zhangsan.01', name: '张三丰', avatar: 'https://sso.example.com/lec-assets/avatar.png', studentNumber: '202300010001'
     });
     await service.resolveUser({ ...memberClaims, picture: null });
-    expect(usersService.syncLogtoProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatarUrl: null }));
+    expect(usersService.syncLecProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatar: null }));
     await service.resolveUser({ ...memberClaims, picture: 'javascript:alert(1)' });
-    expect(usersService.syncLogtoProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatarUrl: undefined }));
+    expect(usersService.syncLecProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatar: undefined }));
     await service.resolveUser(memberClaims);
-    expect(usersService.syncLogtoProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatarUrl: undefined }));
+    expect(usersService.syncLecProfile).toHaveBeenLastCalledWith(user, expect.objectContaining({ avatar: undefined }));
   });
 
 });

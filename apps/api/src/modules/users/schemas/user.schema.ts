@@ -4,6 +4,10 @@ import { UserRole, UserStatus } from '@lecpunch/shared';
 
 @Schema({ timestamps: true, collection: 'users' })
 export class User {
+  // timestamps 由 Mongoose 维护，统一响应以 ISO 字符串输出。
+  createdAt!: Date;
+  updatedAt!: Date;
+
   @Prop({ type: String, unique: true, sparse: true, index: true })
   logtoUserId?: string;
 

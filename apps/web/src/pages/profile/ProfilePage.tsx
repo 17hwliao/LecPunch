@@ -76,7 +76,7 @@ export const ProfilePage = () => {
         <Avatar
           name={user?.displayName ?? '用户'}
           size="lg"
-          avatarUrl={user?.avatarUrl}
+          avatarUrl={user?.avatar}
           avatarBase64={user?.avatarBase64}
           avatarEmoji={user?.avatarEmoji}
           avatarColor={user?.avatarColor}
@@ -84,7 +84,7 @@ export const ProfilePage = () => {
         />
         <div>
           <p className="text-sm text-gray-500 mb-2">头像</p>
-          {user?.avatarUrl ? <p className="text-sm text-gray-500">由 LecSSO 统一管理</p> : <Button variant="outline" size="sm" onClick={() => setShowAvatarEditor(true)}>
+          {user?.avatar ? <p className="text-sm text-gray-500">由 LecSSO 统一管理</p> : <Button variant="outline" size="sm" onClick={() => setShowAvatarEditor(true)}>
             更换头像
           </Button>}
         </div>
@@ -111,11 +111,11 @@ export const ProfilePage = () => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-medium text-gray-700 mb-1">真实姓名</p>
-            <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{user?.realName ?? '—'}</p>
+            <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{user?.name ?? '—'}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-700 mb-1">学号</p>
-            <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{user?.studentId ?? '—'}</p>
+            <p className="text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">{user?.studentNumber ?? '—'}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-gray-700 mb-1">入学年份</p>

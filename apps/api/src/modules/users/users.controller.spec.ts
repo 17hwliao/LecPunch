@@ -74,4 +74,18 @@ describe('UsersController', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
     await expect(controller.adminDeleteMember(memberUser, 'member-2')).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('更新自己的业务资料后，继续按当前 token 投影权限并返回统一身份字段', async () => {
+    usersService.updateProfile.mockResolvedValue({
+      id: 'admin-1', logtoUserId: 'sso-captain-1', username: 'captain.lec', displayName: '新昵称',
+      realName: '队长', studentId: '202300010001', avatarUrl: 'https://sso.example.com/avatar.png',
+      teamId: 'team-1', role: 'member', status: 'active', enrollYear: 2023,
+      createdAt: new Date('2026-04-01T00:00:00.000Z'), updatedAt: new Date('2026-04-02T00:00:00.000Z')
+    });
+    await expect(controller.updateProfile(adminUser, { displayName: '新昵称' })).resolves.toMatchObject({
+      id: 'admin-1', lecUserId: 'sso-captain-1', name: '队长', studentNumber: '202300010001',
+      avatar: 'https://sso.example.com/avatar.png', role: 'admin', displayName: '新昵称'
+    });
+    expect(usersService.updateProfile).toHaveBeenCalledWith('admin-1', { displayName: '新昵称' });
+  });
 });

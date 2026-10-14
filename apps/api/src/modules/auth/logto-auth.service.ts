@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
-import { ERROR_CODES } from '@lecpunch/shared';
+import { ERROR_CODES, type LecUser } from '@lecpunch/shared';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import type { AuthUser } from './types/auth-user.type';
@@ -10,10 +10,10 @@ export interface LogtoAccessTokenClaims extends JWTPayload {
   sub: string;
   organization_id?: string;
   scope?: string;
-  username?: string;
-  name?: string;
-  student_number?: string;
-  picture?: string | null;
+  username?: LecUser['username'];
+  name?: LecUser['name'];
+  student_number?: LecUser['studentNumber'];
+  picture?: LecUser['avatar'];
 }
 
 @Injectable()
@@ -94,7 +94,7 @@ export class LogtoAuthService {
       user = await this.usersService.create({
         logtoUserId: claims.sub,
         username,
-        displayName: claims.name?.trim() || username,
+        displayName: realName || username,
         teamId: team.id,
         role: 'member',
         enrollYear: Number(studentId.slice(0, 4)),
@@ -105,7 +105,9 @@ export class LogtoAuthService {
     }
 
     if (user.status !== 'active') throw this.unauthorized('账号已停用', ERROR_CODES.USER_DISABLED);
-    const identityUser = await this.usersService.syncLogtoProfile(user, { username, realName, avatarUrl });
+    const identityUser = await this.usersService.syncLecProfile(user, {
+      username, name: realName, avatar: avatarUrl, studentNumber: studentId
+    });
     return {
       userId: identityUser.id,
       teamId: identityUser.teamId,

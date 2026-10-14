@@ -1,3 +1,4 @@
+import { createUserFixture } from '@/test/user-fixture';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -39,11 +40,11 @@ describe('CallbackPage', () => {
     useAuthStore.setState({
       auth: {
         token: 'access-token',
-        user: {
+        user: createUserFixture({
           id: 'user-1', teamId: 'team-1', username: 'alice', displayName: 'Alice',
           role: 'member', status: 'active', enrollYear: 2024,
           createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z'
-        }
+        })
       }
     });
 
