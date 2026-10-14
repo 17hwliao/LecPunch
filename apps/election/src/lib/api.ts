@@ -43,28 +43,36 @@ export class ApiError extends Error {
   }
 }
 
+const previewIdentityDefaults = {
+  lecUserId: null,
+  avatar: null,
+  createdAt: '2026-09-01T00:00:00.000Z',
+  updatedAt: '2026-09-01T00:00:00.000Z'
+};
+
 let previewUser: ElectionUser = {
+  ...previewIdentityDefaults,
   id: 'preview-admin-001',
   username: 'local-preview-admin',
   displayName: '林予安',
-  realName: '林予安',
+  name: '林予安',
   role: 'admin',
   status: 'active',
   teamId: 'preview-focus-team',
   enrollYear: 2023,
-  studentId: '202301010001',
+  studentNumber: '202301010001',
   avatarEmoji: '🐱',
   avatarColor: '#58b9e8'
 };
 
 let previewMembers: ElectionUser[] = [
   previewUser,
-  { id: 'preview-member-001', username: 'chenxi', displayName: '晨曦', realName: '陈曦', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2025, studentId: '202501010028', avatarEmoji: '🌤️', avatarColor: '#78c9ee' },
-  { id: 'preview-member-002', username: 'moyu', displayName: '墨宇', realName: '周墨宇', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2025, studentId: '202501010034', avatarEmoji: '🪐', avatarColor: '#7cb4e8' },
-  { id: 'preview-member-003', username: 'xiaoyu', displayName: '小雨', realName: '李雨桐', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2024, studentId: '202401010016', avatarEmoji: '☔', avatarColor: '#9ccff0' },
-  { id: 'preview-member-004', username: 'yuanzi', displayName: '原子', realName: '吴原', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2024, studentId: '202401010042', avatarEmoji: '⚛️', avatarColor: '#78bfe5' },
-  { id: 'preview-member-005', username: 'qingtian', displayName: '青田', realName: '张青田', role: 'member', status: 'disabled', teamId: 'preview-focus-team', enrollYear: 2023, studentId: '202301010067', avatarEmoji: '🌿', avatarColor: '#98d9cf' },
-  { id: 'preview-member-006', username: 'nina', displayName: 'Nina', realName: '王宁', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2023, studentId: '202301010075', avatarEmoji: '🫧', avatarColor: '#94c8f1' }
+  { ...previewIdentityDefaults, id: 'preview-member-001', username: 'chenxi', displayName: '晨曦', name: '陈曦', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2025, studentNumber: '202501010028', avatarEmoji: '🌤️', avatarColor: '#78c9ee' },
+  { ...previewIdentityDefaults, id: 'preview-member-002', username: 'moyu', displayName: '墨宇', name: '周墨宇', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2025, studentNumber: '202501010034', avatarEmoji: '🪐', avatarColor: '#7cb4e8' },
+  { ...previewIdentityDefaults, id: 'preview-member-003', username: 'xiaoyu', displayName: '小雨', name: '李雨桐', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2024, studentNumber: '202401010016', avatarEmoji: '☔', avatarColor: '#9ccff0' },
+  { ...previewIdentityDefaults, id: 'preview-member-004', username: 'yuanzi', displayName: '原子', name: '吴原', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2024, studentNumber: '202401010042', avatarEmoji: '⚛️', avatarColor: '#78bfe5' },
+  { ...previewIdentityDefaults, id: 'preview-member-005', username: 'qingtian', displayName: '青田', name: '张青田', role: 'member', status: 'disabled', teamId: 'preview-focus-team', enrollYear: 2023, studentNumber: '202301010067', avatarEmoji: '🌿', avatarColor: '#98d9cf' },
+  { ...previewIdentityDefaults, id: 'preview-member-006', username: 'nina', displayName: 'Nina', name: '王宁', role: 'member', status: 'active', teamId: 'preview-focus-team', enrollYear: 2023, studentNumber: '202301010075', avatarEmoji: '🫧', avatarColor: '#94c8f1' }
 ];
 
 let previewPolicy: AdminNetworkPolicy = {
@@ -295,7 +303,7 @@ export const fetchMyWeeklyStats = () => isAdminPreviewSession()
   } satisfies MyWeeklyStatsResponse)
   : request<MyWeeklyStatsResponse>('/stats/me/weekly');
 export const fetchTeamWeeklyStats = () => isAdminPreviewSession()
-  ? Promise.resolve({ items: previewMembers.filter((member) => member.status !== 'disabled').map((member, index) => ({ memberKey: member.id, displayName: member.displayName, realName: member.realName, enrollYear: member.enrollYear, role: member.role, avatarEmoji: member.avatarEmoji, avatarColor: member.avatarColor, totalDurationSeconds: (12 - index) * 3600 + (index + 2) * 780, sessionsCount: Math.max(2, 8 - index), weekKey: '2026-W36' })).sort((left, right) => right.totalDurationSeconds - left.totalDurationSeconds) })
+  ? Promise.resolve({ items: previewMembers.filter((member) => member.status !== 'disabled').map((member, index) => ({ memberKey: member.id, displayName: member.displayName, realName: member.name ?? undefined, enrollYear: member.enrollYear, role: member.role, avatarEmoji: member.avatarEmoji, avatarColor: member.avatarColor, totalDurationSeconds: (12 - index) * 3600 + (index + 2) * 780, sessionsCount: Math.max(2, 8 - index), weekKey: '2026-W36' })).sort((left, right) => right.totalDurationSeconds - left.totalDurationSeconds) })
   : request<TeamWeeklyStatsResponse>('/stats/team/current-week');
 export const fetchTeamActiveAttendance = () => isAdminPreviewSession()
   ? Promise.resolve(previewAttendance.hasActiveSession && previewAttendance.session

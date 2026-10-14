@@ -110,7 +110,7 @@ export const AppHeader = () => {
         <Avatar
           name={user ? formatMemberName(user) : '用户'}
           size="sm"
-          avatarUrl={user?.avatarUrl}
+          avatarUrl={user?.avatar}
           avatarBase64={user?.avatarBase64}
           avatarEmoji={user?.avatarEmoji}
           avatarColor={user?.avatarColor}

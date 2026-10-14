@@ -16,7 +16,7 @@ describe('ProfilePage', () => {
         token: 'token-1',
         user: {
           id: 'user-1', teamId: 'team-1', username: 'alice', displayName: 'Alice',
-          realName: 'Alice Zhang', studentId: '202612340001', role: 'member', status: 'active', enrollYear: 2024,
+          lecUserId: 'sso-alice', name: 'Alice Zhang', avatar: null, studentNumber: '202612340001', role: 'member', status: 'active', enrollYear: 2024,
           createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z'
         }
       }
@@ -50,5 +50,15 @@ describe('ProfilePage', () => {
     render(<ProfilePage />);
     expect(screen.getByText('密码和身份资料由 LEC SSO 统一管理。')).toBeInTheDocument();
     expect(screen.queryByLabelText('当前密码')).not.toBeInTheDocument();
+  });
+
+  it('展示统一用户契约中的姓名、学号和头像', () => {
+    useAuthStore.getState().updateUser({ avatar: 'https://sso.example.com/lec-assets/alice.png' });
+    render(<ProfilePage />);
+    expect(screen.getByText('Alice Zhang')).toBeInTheDocument();
+    expect(screen.getByText('202612340001')).toBeInTheDocument();
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'https://sso.example.com/lec-assets/alice.png');
+    expect(screen.getByText('由 LecSSO 统一管理')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '更换头像' })).not.toBeInTheDocument();
   });
 });

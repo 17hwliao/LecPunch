@@ -1,18 +1,5 @@
-export interface ElectionUser {
-  id: string;
-  displayName: string;
-  username: string;
-  role: 'member' | 'admin';
-  teamId: string;
-  status?: 'active' | 'disabled';
-  enrollYear?: number;
-  studentId?: string;
-  realName?: string;
-  avatarUrl?: string;
-  avatarBase64?: string;
-  avatarColor?: string;
-  avatarEmoji?: string;
-}
+export type { User as ElectionUser } from '@lecpunch/shared';
+import type { User as ElectionUser } from '@lecpunch/shared';
 
 export interface AttendanceSnapshot {
   hasActiveSession: boolean;

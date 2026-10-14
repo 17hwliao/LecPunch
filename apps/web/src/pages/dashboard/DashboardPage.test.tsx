@@ -1,3 +1,4 @@
+import { createUserFixture } from '@/test/user-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -24,7 +25,7 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useUIStore.setState({ selectedWeek: 'current' });
-    useAuthStore.setState({ auth: { token: 'token-1', user: { id: 'user-1', teamId: 'team-1', username: 'alice', displayName: 'Alice', role: 'member', status: 'active', enrollYear: 2024, createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z' } } });
+    useAuthStore.setState({ auth: { token: 'token-1', user: createUserFixture({ id: 'user-1', teamId: 'team-1', username: 'alice', displayName: 'Alice', role: 'member', status: 'active', enrollYear: 2024, createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z' }) } });
     mocks.getMyRecords.mockResolvedValue([]);
     mocks.getTeamActiveAttendances.mockResolvedValue([]);
     mocks.getMyNotifications.mockResolvedValue([]);

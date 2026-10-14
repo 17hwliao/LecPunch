@@ -21,6 +21,7 @@ describe('AppHeader', () => {
         token: 'token',
         user: {
           id: 'member-1',
+          lecUserId: null, name: null, avatar: null, studentNumber: null,
           teamId: 'team-1',
           username: 'member',
           displayName: 'Member',

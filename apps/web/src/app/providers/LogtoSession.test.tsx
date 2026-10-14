@@ -51,7 +51,7 @@ describe('LogtoSession', () => {
   it('获取 token 引发 SDK loading 时不会取消会话恢复', async () => {
     const token = deferred<string | undefined>();
     const user = {
-      id: 'user-1', teamId: 'team-1', username: 'alice', displayName: 'Alice',
+      id: 'user-1', lecUserId: 'sso-user-1', name: null, avatar: null, studentNumber: null, teamId: 'team-1', username: 'alice', displayName: 'Alice',
       role: 'member', status: 'active', enrollYear: 2024,
       createdAt: '2026-04-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z'
     };

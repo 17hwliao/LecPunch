@@ -4,7 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { AttendanceSession, AttendanceSessionDocument } from '../attendance/schemas/attendance-session.schema';
-import { ERROR_CODES, UserRole, UserStatus } from '@lecpunch/shared';
+import { ERROR_CODES, UserRole, UserStatus, type LecUser } from '@lecpunch/shared';
 import * as bcrypt from 'bcrypt';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { AuthUser } from '../auth/types/auth-user.type';
@@ -117,12 +117,13 @@ export class UsersService {
   }
 
   /** 仅同步经过 Logto 验签的身份资料；资料未变时不写数据库。 */
-  async syncLogtoProfile(user: UserDocument, profile: { username: string; realName?: string; avatarUrl?: string | null }) {
+  async syncLecProfile(user: UserDocument, profile: Pick<LecUser, 'username'> & Partial<Pick<LecUser, 'name' | 'avatar' | 'studentNumber'>>) {
     const set: Record<string, string> = {};
     if (user.username !== profile.username) set.username = profile.username;
-    if (profile.realName !== undefined && user.realName !== profile.realName) set.realName = profile.realName;
-    if (profile.avatarUrl && user.avatarUrl !== profile.avatarUrl) set.avatarUrl = profile.avatarUrl;
-    const removeAvatar = profile.avatarUrl === null && Boolean(user.avatarUrl);
+    if (profile.name != null && user.realName !== profile.name) set.realName = profile.name;
+    if (profile.studentNumber != null && user.studentId !== profile.studentNumber) set.studentId = profile.studentNumber;
+    if (profile.avatar && user.avatarUrl !== profile.avatar) set.avatarUrl = profile.avatar;
+    const removeAvatar = profile.avatar === null && Boolean(user.avatarUrl);
     if (Object.keys(set).length === 0 && !removeAvatar) return user;
     const updated = await this.userModel.findByIdAndUpdate(user.id, {
       $set: set,

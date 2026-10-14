@@ -1,3 +1,4 @@
+import { createUserFixture } from '@/test/user-fixture';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -25,7 +26,7 @@ describe('AdminMembersPage', () => {
     useAuthStore.setState({
       auth: {
         token: 'token',
-        user: {
+        user: createUserFixture({
           id: 'admin-1',
           teamId: 'team-1',
           username: 'admin',
@@ -35,7 +36,7 @@ describe('AdminMembersPage', () => {
           enrollYear: 2024,
           createdAt: '2026-04-11T00:00:00.000Z',
           updatedAt: '2026-04-11T00:00:00.000Z'
-        }
+        })
       }
     });
   });

@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { AdminUpdateMemberDto } from './dto/admin-update-member.dto';
+import { toUserResponse } from './user.mapper';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -16,7 +17,7 @@ export class UsersController {
   async listTeamMembers(@CurrentUser() user: AuthUser) {
     this.assertAdmin(user);
     const members = await this.usersService.listTeamMembers(user.teamId);
-    return { items: members.map((member) => this.mapUser(member)) };
+    return { items: members.map((member) => toUserResponse(member)) };
   }
 
   @Patch('admin/members/:userId')
@@ -27,7 +28,7 @@ export class UsersController {
   ) {
     this.assertAdmin(user);
     const member = await this.usersService.adminUpdateMember(user, userId, dto);
-    return this.mapUser(member);
+    return toUserResponse(member);
   }
 
   @Delete('admin/members/:userId')
@@ -40,7 +41,7 @@ export class UsersController {
   @Patch('me')
   async updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     const updated = await this.usersService.updateProfile(user.userId, dto);
-    return this.mapUser(updated);
+    return toUserResponse(updated, user.role);
   }
 
   @Patch('me/password')
@@ -55,23 +56,4 @@ export class UsersController {
     }
   }
 
-  private mapUser(user: any) {
-    return {
-      id: user.id,
-      teamId: user.teamId,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
-      status: user.status,
-      enrollYear: user.enrollYear,
-      studentId: user.studentId,
-      realName: user.realName,
-      avatarUrl: user.avatarUrl,
-      avatarBase64: user.avatarBase64,
-      avatarColor: user.avatarColor,
-      avatarEmoji: user.avatarEmoji,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
-  }
 }
