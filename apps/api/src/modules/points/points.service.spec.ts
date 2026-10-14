@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PointsService } from './points.service';
-import { SKIN_PRICE_POINTS } from '../../common/constants/shop.constants';
 
 describe('PointsService', () => {
   const findOneAndUpdate = vi.fn();
@@ -76,41 +75,4 @@ describe('PointsService', () => {
     ]);
   });
 
-  it('returns zero when a user has no point ledger entries', async () => {
-    aggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([]) });
-
-    await expect(service.getUserPoints('team-1', 'user-1')).resolves.toEqual({ totalPoints: 0 });
-    expect(aggregate).toHaveBeenCalledWith([
-      { $match: { teamId: 'team-1', userId: 'user-1' } },
-      { $group: { _id: null, totalPoints: { $sum: '$points' } } }
-    ]);
-  });
-
-  it('uses the same signed ledger sum for a skin expense as for attendance income', async () => {
-    aggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([{ totalPoints: 40 }]) });
-
-    await expect(service.getUserPoints('team-1', 'user-1')).resolves.toEqual({ totalPoints: 40 });
-    expect(aggregate).toHaveBeenCalledWith([
-      { $match: { teamId: 'team-1', userId: 'user-1' } },
-      { $group: { _id: null, totalPoints: { $sum: '$points' } } }
-    ]);
-  });
-
-  it('records a skin unlock as one negative, idempotency-addressable ledger expense', async () => {
-    findOneAndUpdate.mockReturnValue({ exec: vi.fn().mockResolvedValue({}) });
-    const create = vi.fn().mockResolvedValue({});
-    pointLedgerModel.create = create;
-
-    await service.recordSkinUnlockExpense({ teamId: 'team-1', userId: 'user-1', skinId: 'doro' });
-
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        teamId: 'team-1',
-        userId: 'user-1',
-        sourceType: 'skin_unlock',
-        sourceAttendanceSessionId: 'skin_unlock:user-1:doro',
-        points: -SKIN_PRICE_POINTS
-      })
-    );
-  });
 });

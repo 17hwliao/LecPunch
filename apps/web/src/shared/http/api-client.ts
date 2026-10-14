@@ -1,5 +1,6 @@
 import axios, { AxiosHeaders } from 'axios';
 import { useAuthStore } from '@/app/store/auth-store';
+import { getAccessToken } from '@/shared/auth/logto';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -15,8 +16,8 @@ export const setNavigateToLogin = (fn: () => void) => {
   _navigateToLogin = fn;
 };
 
-apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().auth.token;
+apiClient.interceptors.request.use(async (config) => {
+  const token = await getAccessToken();
   if (token) {
     const headers = AxiosHeaders.from(config.headers);
     headers.set('Authorization', `Bearer ${token}`);

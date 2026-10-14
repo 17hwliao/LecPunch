@@ -28,6 +28,10 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+        VITE_LOGTO_ENDPOINT: ${LOGTO_ENDPOINT:?请设置浏览器可访问的 LOGTO_ENDPOINT}
+        VITE_LOGTO_APP_ID: ${LOGTO_WEB_APP_ID:-lecpunch-web}
+        VITE_LOGTO_RESOURCE: ${LOGTO_API_RESOURCE:-https://api.lecpunch.lec.org}
+        VITE_LOGTO_ORGANIZATION_ID: ${LOGTO_ORGANIZATION_ID:-lec-studio}
     restart: unless-stopped
     depends_on:
       - api

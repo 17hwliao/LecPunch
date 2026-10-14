@@ -1,29 +1,32 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { AuthResponse } from './dto/auth-response.dto';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AuthUser } from './types/auth-user.type';
+import type { AuthUser } from './types/auth-user.type';
+import { UsersService } from '../users/users.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
-
-  @Post('register')
-  register(@Body() payload: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(payload);
-  }
-
-  @Post('login')
-  login(@Body() payload: LoginDto): Promise<AuthResponse> {
-    return this.authService.login(payload);
-  }
+  constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@CurrentUser() user: AuthUser) {
-    return this.authService.getProfile(user.userId);
+  async me(@CurrentUser() authUser: AuthUser) {
+    const user = await this.usersService.findById(authUser.userId);
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      teamId: user.teamId,
+      role: authUser.role,
+      status: user.status,
+      enrollYear: user.enrollYear,
+      studentId: user.studentId,
+      realName: user.realName,
+      avatarUrl: user.avatarUrl,
+      avatarBase64: user.avatarBase64,
+      avatarColor: user.avatarColor,
+      avatarEmoji: user.avatarEmoji
+    };
   }
 }

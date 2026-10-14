@@ -372,6 +372,9 @@ export class AttendanceService {
       return {
         memberKey: this.usersService.getMemberKey(session.userId),
         displayName: user?.displayName ?? '未知成员',
+        username: user?.username,
+        realName: user?.realName,
+        avatarUrl: user?.avatarUrl,
         enrollYear: user?.enrollYear ?? 0,
         avatarColor: user?.avatarColor,
         avatarEmoji: user?.avatarEmoji,

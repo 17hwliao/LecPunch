@@ -11,14 +11,16 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 import { PointsService } from '../points/points.service';
 
 export interface CreateUserInput {
+  logtoUserId?: string;
   username: string;
-  passwordHash: string;
+  passwordHash?: string;
   displayName: string;
   teamId: string;
   role?: UserRole;
   enrollYear: number;
   studentId?: string;
   realName?: string;
+  avatarUrl?: string;
 }
 
 export interface UpdateProfileInput {
@@ -52,6 +54,10 @@ export class UsersService {
 
   findByUsername(username: string) {
     return this.userModel.findOne({ username }).exec();
+  }
+
+  findByLogtoUserId(logtoUserId: string) {
+    return this.userModel.findOne({ logtoUserId }).exec();
   }
 
   findById(id: string) {
@@ -100,6 +106,32 @@ export class UsersService {
     return this.userModel.findOne({ studentId }).exec();
   }
 
+  bindLogtoIdentity(userId: string, logtoUserId: string) {
+    return this.userModel
+      .findOneAndUpdate(
+        { _id: userId, logtoUserId: { $exists: false } },
+        { $set: { logtoUserId } },
+        { new: true }
+      )
+      .exec();
+  }
+
+  /** 仅同步经过 Logto 验签的身份资料；资料未变时不写数据库。 */
+  async syncLogtoProfile(user: UserDocument, profile: { username: string; realName?: string; avatarUrl?: string | null }) {
+    const set: Record<string, string> = {};
+    if (user.username !== profile.username) set.username = profile.username;
+    if (profile.realName !== undefined && user.realName !== profile.realName) set.realName = profile.realName;
+    if (profile.avatarUrl && user.avatarUrl !== profile.avatarUrl) set.avatarUrl = profile.avatarUrl;
+    const removeAvatar = profile.avatarUrl === null && Boolean(user.avatarUrl);
+    if (Object.keys(set).length === 0 && !removeAvatar) return user;
+    const updated = await this.userModel.findByIdAndUpdate(user.id, {
+      $set: set,
+      ...(removeAvatar ? { $unset: { avatarUrl: 1 } } : {})
+    }, { new: true }).exec();
+    if (!updated) throw new NotFoundException('User not found');
+    return updated;
+  }
+
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<UserDocument> {
     const set: Record<string, unknown> = {};
     const unset: Record<string, 1> = {};
@@ -137,6 +169,9 @@ export class UsersService {
     const user = await this.userModel.findById(userId).exec();
     if (!user) throw new NotFoundException('User not found');
 
+    if (!user.passwordHash) {
+      throw new BadRequestException({ code: 'SSO_MANAGED_PASSWORD', message: '请在 LEC SSO 中修改密码' });
+    }
     const valid = await bcrypt.compare(oldPassword, user.passwordHash);
     if (!valid) {
       throw new BadRequestException({ code: 'WRONG_PASSWORD', message: '当前密码不正确' });

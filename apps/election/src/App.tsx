@@ -1,6 +1,7 @@
+import { formatMemberName } from '@lecpunch/shared';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, Bell, BellRing, BookOpenText, CalendarDays, Cat, Check, ChevronRight, CircleDollarSign, Crown, EyeOff, Flag, Flame, LayoutDashboard, LockKeyhole, LogOut, Menu, Minimize2, Moon, RefreshCw, Save, ShieldCheck, ShoppingBag, Sparkles, Trophy, UserRound, UsersRound, Video, VolumeX, X } from 'lucide-react';
-import { AUTH_EXPIRED_EVENT, ApiError, acknowledgeNotification, checkIn, checkOut, clearToken, fetchAttendance, fetchCurrentUser, fetchNotifications, fetchPoints, fetchTeamActiveAttendance, fetchTeamWeeklyStats, login, readToken, startNotificationStream, updatePassword, updateProfile } from '@/lib/api';
+import { ArrowUpRight, Bell, BellRing, BookOpenText, CalendarDays, Check, ChevronRight, CircleDollarSign, Crown, EyeOff, Flag, Flame, LayoutDashboard, LockKeyhole, LogOut, Menu, Minimize2, Moon, RefreshCw, Save, ShieldCheck, Sparkles, Trophy, UserRound, UsersRound, Video, VolumeX, X } from 'lucide-react';
+import { AUTH_EXPIRED_EVENT, ApiError, acknowledgeNotification, checkIn, checkOut, clearToken, fetchAttendance, fetchCurrentUser, fetchNotifications, fetchPoints, fetchTeamActiveAttendance, fetchTeamWeeklyStats, getAuthStatus, login, startNotificationStream, updatePassword, updateProfile } from '@/lib/api';
 import type { AttendanceSnapshot, ElectionNotification, ElectionUser, TeamActiveAttendance, TeamWeeklyStat } from '@/types';
 import { AdminPage } from '@/AdminPage';
 import { ProfileSettingsPage } from '@/ProfileSettingsPage';
@@ -11,11 +12,11 @@ import { TeamEventsPage } from '@/TeamEventsPage';
 import { MemberAttendanceDialog } from '@/MemberAttendanceDialog';
 import { TeamBlogWall } from '@/TeamBlogWall';
 import { MeetingPage } from '@/MeetingPage';
-import { SkinShopPage } from '@/SkinShopPage';
 import { emptyAppearance, type AppearanceState, type ThemePreference } from '@/AppearanceSettings';
 
-type View = 'dashboard' | 'progress' | 'ranking' | 'team' | 'events' | 'meeting' | 'shop' | 'reports' | 'feedback' | 'profile' | 'admin';
+type View = 'dashboard' | 'progress' | 'ranking' | 'team' | 'events' | 'meeting' | 'reports' | 'feedback' | 'profile' | 'admin';
 type ScheduledTask = { id: string; title: string; time: string; enabled: boolean };
+type AvailableUpdate = { currentVersion: string; latestVersion: string };
 
 const REMINDER_STORAGE_KEY = 'lecpunch.election.reminders-enabled';
 const IMMERSIVE_STORAGE_KEY = 'lecpunch.election.immersive-enabled';
@@ -76,7 +77,7 @@ export const App = () => {
   const [activeMembers, setActiveMembers] = useState<TeamActiveAttendance[]>([]);
   const [notifications, setNotifications] = useState<ElectionNotification[]>([]);
   const [view, setView] = useState<View>('dashboard');
-  const [loading, setLoading] = useState(Boolean(readToken()));
+  const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(() => readStoredBoolean(REMINDER_STORAGE_KEY, true));
@@ -86,6 +87,17 @@ export const App = () => {
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const [appearance, setAppearance] = useState<AppearanceState>(emptyAppearance);
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdate | null>(null);
+
+  useEffect(() => {
+    const updates = window.lecpunchDesktop?.updates;
+    if (!window.lecpunchDesktop?.isPackaged || !updates) return;
+    void updates.check().then((status) => {
+      if (status.available && status.latestVersion) {
+        setAvailableUpdate({ currentVersion: status.currentVersion, latestVersion: status.latestVersion });
+      }
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!window.lecpunchDesktop) return;
@@ -145,7 +157,21 @@ export const App = () => {
     }
   };
 
-  useEffect(() => { if (readToken()) void refresh(); }, []);
+  useEffect(() => {
+    let active = true;
+    void getAuthStatus()
+      .then(({ authenticated }) => {
+        if (!active) return;
+        if (authenticated) return refresh();
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setLoading(false);
+        setNotice(error instanceof Error ? error.message : '无法读取登录状态。');
+      });
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     const handleExpired = () => {
       setUser(null);
@@ -229,26 +255,6 @@ export const App = () => {
     return () => window.clearInterval(timer);
   }, [scheduledTasks, remindersEnabled]);
 
-  useEffect(() => {
-    const stopListening = window.lecpunchDesktop?.onMainAction((action) => {
-      if (action === 'refresh') {
-        void refresh();
-      } else if (action === 'schedule') {
-        setScheduleOpen(true);
-      } else if (action === 'profile') {
-        setScheduleOpen(false);
-        setView('profile');
-        window.setTimeout(() => document.getElementById('companion-layout-settings')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 0);
-      } else if (action === 'shop') {
-        setScheduleOpen(false);
-        setView('shop');
-      } else {
-        setNotice('未知的桌面快捷操作。');
-      }
-    });
-    return () => stopListening?.();
-  }, []);
-
   const handleAttendance = async () => {
     try {
       if (attendance?.hasActiveSession) {
@@ -278,14 +284,8 @@ export const App = () => {
   };
 
   const hideToTray = async () => {
-    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，只有 Windows 桌面端支持最小化到托盘。');
+    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，只有桌面端支持最小化到托盘。');
     await window.lecpunchDesktop.hideToTray();
-  };
-
-  const showCat = async () => {
-    if (!window.lecpunchDesktop) return setNotice('当前为浏览器模式，桌面小猫仅在 Windows 客户端中可用。');
-    await window.lecpunchDesktop.showCompanion();
-    setNotice('桌面小猫已出现，可拖动它到合适的位置。');
   };
 
   const acknowledge = async (notificationId: string) => {
@@ -297,19 +297,20 @@ export const App = () => {
     }
   };
 
-  if (!user) return <LoginScreen loading={loading} notice={notice} onLogin={async (username, password) => { setLoading(true); try { setUser(await login(username, password)); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
+  if (!user) return <LoginScreen loading={loading} notice={notice} update={availableUpdate} onDismissUpdate={() => setAvailableUpdate(null)} onLogin={async () => { setLoading(true); try { setUser(await login()); await refresh(); } catch (error) { setNotice(error instanceof Error ? error.message : '登录失败'); setLoading(false); } }} />;
 
-  const labels: Record<View, string> = { dashboard: '工作台', progress: '我的专注', ranking: '打卡排行', team: '团队成员', events: '团队事务', meeting: '视频会议', shop: '小猫商城', reports: '成长报告', feedback: '请假申请', profile: '个人设置', admin: '管理员控制台' };
+  const labels: Record<View, string> = { dashboard: '工作台', progress: '我的专注', ranking: '打卡排行', team: '团队成员', events: '团队事务', meeting: '视频会议', reports: '成长报告', feedback: '请假申请', profile: '个人设置', admin: '管理员控制台' };
   const unreadNotificationCount = notifications.filter((item) => !item.acknowledgedAt).length;
   return <main className={`app-shell ${immersive ? 'is-immersive' : ''} ${appearance.backgroundUrl ? 'has-custom-background' : ''}`}>
     {appearance.backgroundUrl ? <div className="app-custom-background" style={{ backgroundImage: `url("${appearance.backgroundUrl}")`, opacity: appearance.backgroundOpacity / 100, filter: appearance.backgroundBlur ? `blur(${appearance.backgroundBlur}px)` : undefined }} aria-hidden="true" /> : null}
     <div className="app-background-scrim" aria-hidden="true" />
     <div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" />
     <section className="desktop-frame">
-      <Sidebar active={view} open={mobileOpen} onSelect={(next) => { setView(next); setMobileOpen(false); }} user={user} onLogout={() => { clearToken(); setUser(null); setNotifications([]); }} immersive={immersive} onToggleImmersive={toggleImmersive} />
+      <Sidebar active={view} open={mobileOpen} onSelect={(next) => { setView(next); setMobileOpen(false); }} user={user} onLogout={() => { void clearToken(); setUser(null); setNotifications([]); }} immersive={immersive} onToggleImmersive={toggleImmersive} />
       <div className="workspace">
-        <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={19} /></button><div className="crumb"><span>LEC / ELECTION</span><ChevronRight size={14} /><strong>{labels[view]}</strong></div><div className="topbar-actions"><button className="icon-button cat-recall-button" aria-label="唤起桌面小猫" title="唤起桌面小猫" onClick={() => void showCat()}><Cat size={18} /></button><button className="icon-button notification-button" aria-label="查看通知" title="查看通知" onClick={() => setView(user.role === 'admin' ? 'admin' : 'feedback')}><Bell size={18} />{unreadNotificationCount ? <i>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</i> : null}</button><button className="icon-button" aria-label="测试系统提醒" onClick={() => { void showDesktopReminder('LecPunch 提醒测试', 'Windows 原生提醒已准备就绪。'); setNotice('已发送 Windows 原生提醒测试。'); }}><BellRing size={18} /></button><button className="icon-button" aria-label="最小化到系统托盘" onClick={() => void hideToTray()}><Minimize2 size={18} /></button><button className="icon-button" aria-label="刷新数据" onClick={() => void refresh()}><RefreshCw size={18} /></button><button className="profile-chip profile-button" onClick={() => setView((current) => current === 'profile' ? 'dashboard' : 'profile')} title={view === 'profile' ? '返回工作台' : '个人设置'}><span>{user.avatarBase64 ? <img src={user.avatarBase64} alt="" /> : user.avatarEmoji || user.displayName.slice(0, 1)}</span><div><strong>{user.displayName}</strong><small>{user.role === 'admin' ? '管理员' : '成员'}</small></div></button></div></header>
+        <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={19} /></button><div className="crumb"><span>LEC / ELECTION</span><ChevronRight size={14} /><strong>{labels[view]}</strong></div><div className="topbar-actions"><button className="icon-button notification-button" aria-label="查看通知" title="查看通知" onClick={() => setView(user.role === 'admin' ? 'admin' : 'feedback')}><Bell size={18} />{unreadNotificationCount ? <i>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</i> : null}</button><button className="icon-button" aria-label="测试系统提醒" onClick={() => { void showDesktopReminder('LecPunch 提醒测试', '系统提醒已准备就绪。'); setNotice('已发送系统提醒测试。'); }}><BellRing size={18} /></button><button className="icon-button" aria-label="最小化到系统托盘" onClick={() => void hideToTray()}><Minimize2 size={18} /></button><button className="icon-button" aria-label="刷新数据" onClick={() => void refresh()}><RefreshCw size={18} /></button><button className="profile-chip profile-button" onClick={() => setView((current) => current === 'profile' ? 'dashboard' : 'profile')} title={view === 'profile' ? '返回工作台' : '个人设置'}><span>{(user.avatarUrl || user.avatarBase64) ? <img src={user.avatarUrl || user.avatarBase64} alt="" /> : user.avatarEmoji || user.displayName.slice(0, 1)}</span><div><strong>{formatMemberName(user)}</strong><small>{user.role === 'admin' ? '管理员' : '成员'}</small></div></button></div></header>
         {notice ? <div className="toast"><Check size={16} /><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div> : null}
+        {availableUpdate ? <div className="update-banner" role="status"><div><strong>发现新版本 v{availableUpdate.latestVersion}</strong><span>当前版本 v{availableUpdate.currentVersion}</span></div><button className="primary-button" onClick={() => void window.lecpunchDesktop?.updates.openRelease()}>前往下载</button><button className="icon-button" onClick={() => setAvailableUpdate(null)} aria-label="暂时忽略更新"><X size={17} /></button></div> : null}
         {loading ? <div className="loading-line" /> : null}
         {view === 'dashboard' ? <Dashboard user={user} attendance={attendance} points={points} teamStats={teamStats} activeMembers={activeMembers} remindersEnabled={remindersEnabled} scheduledTasks={scheduledTasks} onToggleReminders={() => setRemindersEnabled((current) => !current)} onManageTasks={() => setScheduleOpen(true)} onAttendance={() => void handleAttendance()} onRanking={() => setView('ranking')} /> : null}
         {view === 'progress' ? <PersonalProgressPage onNotice={setNotice} /> : null}
@@ -317,7 +318,6 @@ export const App = () => {
         {view === 'team' ? <TeamPage teamStats={teamStats} isAdmin={user.role === 'admin'} onNotice={setNotice} /> : null}
         {view === 'events' ? <TeamEventsPage onNotice={setNotice} /> : null}
         {view === 'meeting' ? <MeetingPage user={user} onNotice={setNotice} onOpenSettings={() => setView('profile')} /> : null}
-        {view === 'shop' ? <SkinShopPage onNotice={setNotice} onPurchased={() => void refresh()} /> : null}
         {view === 'reports' ? <ReportsPage teamStats={teamStats} onNotice={setNotice} /> : null}
         {view === 'feedback' ? <ReportCenterPage onNotice={setNotice} /> : null}
         {view === 'profile' ? <ProfileSettingsPage user={user} onUserChanged={setUser} onNotice={setNotice} themePreference={themePreference} onThemePreferenceChanged={setThemePreference} appearance={appearance} onAppearanceChanged={setAppearance} /> : null}
@@ -376,11 +376,7 @@ const ProfilePage = ({ user, onUserChanged, onNotice }: { user: ElectionUser; on
 
 const InfoRow = ({ label, value }: { label: string; value: string }) => <div><small>{label}</small><strong>{value}</strong></div>;
 
-const LoginScreen = ({ loading, notice, onLogin }: { loading: boolean; notice: string | null; onLogin: (username: string, password: string) => Promise<void> }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  return <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" /><section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">打卡、团队节奏和成长报告，在同一个蓝白空间里完成。</p><form onSubmit={(event: FormEvent) => { event.preventDefault(); void onLogin(username, password); }}><label>用户名<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="输入用户名" autoFocus /></label><label>密码<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="输入密码" /></label>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading}>{loading ? '正在连接...' : '进入工作台'}<ArrowUpRight size={18} /></button></form></section></main>;
-};
+const LoginScreen = ({ loading, notice, update, onDismissUpdate, onLogin }: { loading: boolean; notice: string | null; update: AvailableUpdate | null; onDismissUpdate: () => void; onLogin: () => Promise<void> }) => <main className="app-shell login-shell"><div className="blue-orb blue-orb-one" /><div className="blue-orb blue-orb-two" />{update ? <div className="update-banner login-update-banner" role="status"><div><strong>发现新版本 v{update.latestVersion}</strong><span>当前版本 v{update.currentVersion}</span></div><button className="primary-button" onClick={() => void window.lecpunchDesktop?.updates.openRelease()}>前往下载</button><button className="icon-button" onClick={onDismissUpdate} aria-label="暂时忽略更新"><X size={17} /></button></div> : null}<section className="login-card blue-card"><div className="brand-mark"><Sparkles size={23} /></div><p className="eyebrow">LECPUNCH / ELECTION</p><h1>把每一次专注<br /><em>留在成长里。</em></h1><p className="muted">使用 LEC SSO 登录；首次会打开系统浏览器，之后自动续期。</p>{notice ? <p className="form-error">{notice}</p> : null}<button className="primary-button" disabled={loading} onClick={() => void onLogin()}>{loading ? '正在连接...' : '使用 LEC SSO 登录'}<ArrowUpRight size={18} /></button></section></main>;
 
 const Sidebar = ({ active, open, onSelect, user, onLogout, immersive, onToggleImmersive }: { active: View; open: boolean; onSelect: (view: View) => void; user: ElectionUser; onLogout: () => void; immersive: boolean; onToggleImmersive: () => void }) => {
   const items: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
@@ -390,7 +386,6 @@ const Sidebar = ({ active, open, onSelect, user, onLogout, immersive, onToggleIm
     { id: 'team', label: '团队成员', icon: UsersRound },
     { id: 'events', label: '团队事务', icon: CalendarDays },
     { id: 'meeting', label: '视频会议', icon: Video },
-    { id: 'shop', label: '小猫商城', icon: ShoppingBag },
     { id: 'reports', label: '成长报告', icon: BookOpenText },
     { id: 'feedback', label: '请假申请', icon: Flag },
     ...(user.role === 'admin' ? [{ id: 'admin' as const, label: '管理控制台', icon: ShieldCheck }] : [])
@@ -402,10 +397,10 @@ const Dashboard = ({ user, attendance, points, teamStats, activeMembers, reminde
   const elapsed = attendance?.session?.elapsedSeconds ?? 0;
   const active = Boolean(attendance?.hasActiveSession);
   const ranking = teamStats.slice(0, 3);
-  return <div className="page dashboard-page"><section className="welcome-row"><div><p className="eyebrow">{formatToday().toUpperCase()}</p><h1>你好，{user.displayName}<span> · </span>专注开始</h1><p>每一分钟都有记录，每一次回看都看得见成长。</p></div><div className="week-pill"><CalendarDays size={17} /><span>{getWeekKey()}</span><i /></div></section><section className="dashboard-grid"><article className={`focus-card blue-card ${active ? 'is-active' : ''}`}><div className="focus-card-top"><div><span className="live-dot" />{active ? '正在专注' : '准备开始'}</div><small>{active ? '服务器已记录上卡时间' : '由服务器确认有效时长'}</small></div><div className="timer">{formatDuration(elapsed)}</div><p>{active ? '下卡时将按服务器时间结算；还剩 15 分钟到达 5 小时上限时会提醒你。' : '点击开始，开启一段清晰、有记录的学习时光。'}</p><button className="attendance-button" onClick={onAttendance}>{active ? '结束专注' : '开始专注'}<ArrowUpRight size={19} /></button><div className="focus-orb orb-one" /><div className="focus-orb orb-two" /></article><article className="points-card blue-card"><div className="card-label"><CircleDollarSign size={18} />成长积分</div><div className="points-value"><span>{points.toLocaleString()}</span><small>PTS</small></div><div className="points-foot"><Flame size={17} /><span>下卡后每满一分钟 +1</span></div><div className="mini-bars">{[34, 57, 41, 72, 54, 83, 66].map((height, index) => <i key={index} style={{ height: `${height}%` }} />)}</div></article><article className="reminder-card blue-card"><div className="card-label"><BellRing size={18} />按时提醒</div><strong>{remindersEnabled ? '提醒已开启' : '提醒已暂停'}</strong><p>内置时段与 {scheduledTasks.filter((task) => task.enabled).length} 个自定义任务会同时提醒；小猫消息始终显示。</p><button className="reminder-manage" onClick={onManageTasks}>管理定时任务 <ChevronRight size={15} /></button><button className={`switch-row ${remindersEnabled ? 'on' : ''}`} onClick={onToggleReminders}><span>{remindersEnabled ? '关闭提醒' : '开启提醒'}</span><i /></button></article></section><section className="lower-grid"><article className="ranking-preview blue-card"><div className="section-head"><div><p className="eyebrow">ATTENDANCE RANKING</p><h2>本周打卡排行</h2></div><button onClick={onRanking}>完整排行 <ChevronRight size={16} /></button></div>{ranking.length ? <ol className="compact-ranking">{ranking.map((member, index) => <li key={member.memberKey}><b>{String(index + 1).padStart(2, '0')}</b><span>{member.displayName}</span><small>{formatStudyDuration(member.totalDurationSeconds)}</small></li>)}</ol> : <EmptyData text="服务器上线团队统计后，这里会显示本周排行。" />}</article><article className="focus-guide blue-card active-members-card"><div className="section-head"><div><p className="eyebrow">ACTIVE NOW</p><h2>当前打卡中</h2></div><UsersRound size={19} /></div>{activeMembers.length ? <ol className="compact-active-members">{activeMembers.map((member) => <li key={member.memberKey}><span className="active-member-avatar" style={{ background: member.avatarColor }}>{member.avatarBase64 ? <img src={member.avatarBase64} alt="" /> : member.avatarEmoji || member.displayName.slice(0, 1)}</span><strong>{member.displayName}</strong><small>{formatStudyDuration(member.elapsedSeconds)}</small></li>)}</ol> : <EmptyData text="当前没有成员正在打卡。" />}</article></section></div>;
+  return <div className="page dashboard-page"><section className="welcome-row"><div><p className="eyebrow">{formatToday().toUpperCase()}</p><h1>你好，{user.displayName}<span> · </span>专注开始</h1><p>每一分钟都有记录，每一次回看都看得见成长。</p></div><div className="week-pill"><CalendarDays size={17} /><span>{getWeekKey()}</span><i /></div></section><section className="dashboard-grid"><article className={`focus-card blue-card ${active ? 'is-active' : ''}`}><div className="focus-card-top"><div><span className="live-dot" />{active ? '正在专注' : '准备开始'}</div><small>{active ? '服务器已记录上卡时间' : '由服务器确认有效时长'}</small></div><div className="timer">{formatDuration(elapsed)}</div><p>{active ? '下卡时将按服务器时间结算；还剩 15 分钟到达 5 小时上限时会提醒你。' : '点击开始，开启一段清晰、有记录的学习时光。'}</p><button className="attendance-button" onClick={onAttendance}>{active ? '结束专注' : '开始专注'}<ArrowUpRight size={19} /></button><div className="focus-orb orb-one" /><div className="focus-orb orb-two" /></article><article className="points-card blue-card"><div className="card-label"><CircleDollarSign size={18} />成长积分</div><div className="points-value"><span>{points.toLocaleString()}</span><small>PTS</small></div><div className="points-foot"><Flame size={17} /><span>下卡后每满一分钟 +1</span></div><div className="mini-bars">{[34, 57, 41, 72, 54, 83, 66].map((height, index) => <i key={index} style={{ height: `${height}%` }} />)}</div></article><article className="reminder-card blue-card"><div className="card-label"><BellRing size={18} />按时提醒</div><strong>{remindersEnabled ? '提醒已开启' : '提醒已暂停'}</strong><p>内置时段与 {scheduledTasks.filter((task) => task.enabled).length} 个自定义任务会同时发送系统通知。</p><button className="reminder-manage" onClick={onManageTasks}>管理定时任务 <ChevronRight size={15} /></button><button className={`switch-row ${remindersEnabled ? 'on' : ''}`} onClick={onToggleReminders}><span>{remindersEnabled ? '关闭提醒' : '开启提醒'}</span><i /></button></article></section><section className="lower-grid"><article className="ranking-preview blue-card"><div className="section-head"><div><p className="eyebrow">ATTENDANCE RANKING</p><h2>本周打卡排行</h2></div><button onClick={onRanking}>完整排行 <ChevronRight size={16} /></button></div>{ranking.length ? <ol className="compact-ranking">{ranking.map((member, index) => <li key={member.memberKey}><b>{String(index + 1).padStart(2, '0')}</b><span>{formatMemberName(member)}</span><small>{formatStudyDuration(member.totalDurationSeconds)}</small></li>)}</ol> : <EmptyData text="服务器上线团队统计后，这里会显示本周排行。" />}</article><article className="focus-guide blue-card active-members-card"><div className="section-head"><div><p className="eyebrow">ACTIVE NOW</p><h2>当前打卡中</h2></div><UsersRound size={19} /></div>{activeMembers.length ? <ol className="compact-active-members">{activeMembers.map((member) => <li key={member.memberKey}><span className="active-member-avatar" style={{ background: member.avatarColor }}>{(member.avatarUrl || member.avatarBase64) ? <img src={member.avatarUrl || member.avatarBase64} alt="" /> : member.avatarEmoji || member.displayName.slice(0, 1)}</span><strong>{formatMemberName(member)}</strong><small>{formatStudyDuration(member.elapsedSeconds)}</small></li>)}</ol> : <EmptyData text="当前没有成员正在打卡。" />}</article></section></div>;
 };
 
-const RankingPage = ({ teamStats }: { teamStats: TeamWeeklyStat[] }) => <div className="page ranking-page"><section className="welcome-row"><div><p className="eyebrow">ATTENDANCE LEADERBOARD</p><h1>打卡<span>排行</span></h1><p>按本周调整后有效时长排序；排行只展示成员昵称。</p></div><div className="week-pill"><CalendarDays size={17} /><span>{getWeekKey()}</span><i /></div></section><section className="ranking-card blue-card">{teamStats.length ? <ol className="full-ranking">{teamStats.map((member, index) => <li key={member.memberKey}><div className={`rank-medal rank-${index + 1}`}>{index < 3 ? <Crown size={18} /> : String(index + 1).padStart(2, '0')}</div><strong>{member.displayName}</strong><span>{member.sessionsCount} 次打卡{member.adjustmentsCount ? ' · 含管理员调整' : ''}</span><time>{formatStudyDuration(member.totalDurationSeconds)}</time></li>)}</ol> : <EmptyData text="暂无团队统计数据。服务器部署 stats 模块后，排行会自动加载。" />}</section></div>;
+const RankingPage = ({ teamStats }: { teamStats: TeamWeeklyStat[] }) => <div className="page ranking-page"><section className="welcome-row"><div><p className="eyebrow">ATTENDANCE LEADERBOARD</p><h1>打卡<span>排行</span></h1><p>按本周调整后有效时长排序；排行只展示成员昵称。</p></div><div className="week-pill"><CalendarDays size={17} /><span>{getWeekKey()}</span><i /></div></section><section className="ranking-card blue-card">{teamStats.length ? <ol className="full-ranking">{teamStats.map((member, index) => <li key={member.memberKey}><div className={`rank-medal rank-${index + 1}`}>{index < 3 ? <Crown size={18} /> : String(index + 1).padStart(2, '0')}</div><strong>{formatMemberName(member)}</strong><span>{member.sessionsCount} 次打卡{member.adjustmentsCount ? ' · 含管理员调整' : ''}</span><time>{formatStudyDuration(member.totalDurationSeconds)}</time></li>)}</ol> : <EmptyData text="暂无团队统计数据。服务器部署 stats 模块后，排行会自动加载。" />}</section></div>;
 
 const TeamPage = ({ teamStats, isAdmin, onNotice }: { teamStats: TeamWeeklyStat[]; isAdmin: boolean; onNotice: (notice: string) => void }) => {
   const [inspecting, setInspecting] = useState<TeamWeeklyStat | null>(null);
@@ -414,7 +409,7 @@ const TeamPage = ({ teamStats, isAdmin, onNotice }: { teamStats: TeamWeeklyStat[
     teamStats.forEach((member) => { const grade = member.enrollYear ? `${member.enrollYear} 级` : '未设置年级'; result.set(grade, [...(result.get(grade) ?? []), member]); });
     return [...result.entries()].sort(([left], [right]) => right.localeCompare(left));
   }, [teamStats]);
-  return <div className="page team-page"><section className="welcome-row"><div><p className="eyebrow">TEAM DIRECTORY</p><h1>团队<span>成员</span></h1><p>按入学年级分组，展示昵称、真实姓名和服务器头像；点击成员可查看服务端允许的打卡明细。</p></div></section>{groups.length ? <section className="grade-groups">{groups.map(([grade, members]) => <article className="grade-group blue-card" key={grade}><header><div><p className="eyebrow">COHORT</p><h2>{grade}</h2></div><span>{members.length} 位成员</span></header><div className="member-grid">{members.map((member) => <button className="member-card member-card-button" key={member.memberKey} onClick={() => setInspecting(member)}><div className="member-avatar">{member.avatarBase64 ? <img src={member.avatarBase64} alt="" /> : member.avatarEmoji || member.displayName.slice(0, 1)}</div><div><strong>{member.displayName}</strong><span>（{member.realName || '未设置真名'}）</span><small>{member.role === 'admin' ? '管理员' : '成员'} · 本周 {formatStudyDuration(member.totalDurationSeconds)}</small></div></button>)}</div></article>)}</section> : <section className="blue-card empty-panel"><UsersRound size={30} /><h2>团队成员暂未加载</h2><p>服务器返回团队数据后，这里会显示昵称、真实姓名与头像。</p></section>}{inspecting ? <MemberAttendanceDialog member={inspecting} isAdmin={isAdmin} onClose={() => setInspecting(null)} onNotice={onNotice} /> : null}</div>;
+  return <div className="page team-page"><section className="welcome-row"><div><p className="eyebrow">TEAM DIRECTORY</p><h1>团队<span>成员</span></h1><p>按入学年级分组，展示真名、Handle 和 LecSSO 头像；点击成员可查看服务端允许的打卡明细。</p></div></section>{groups.length ? <section className="grade-groups">{groups.map(([grade, members]) => <article className="grade-group blue-card" key={grade}><header><div><p className="eyebrow">COHORT</p><h2>{grade}</h2></div><span>{members.length} 位成员</span></header><div className="member-grid">{members.map((member) => <button className="member-card member-card-button" key={member.memberKey} onClick={() => setInspecting(member)}><div className="member-avatar">{(member.avatarUrl || member.avatarBase64) ? <img src={member.avatarUrl || member.avatarBase64} alt="" /> : member.avatarEmoji || member.displayName.slice(0, 1)}</div><div><strong>{formatMemberName(member)}</strong><small>{member.role === 'admin' ? '管理员' : '成员'} · 本周 {formatStudyDuration(member.totalDurationSeconds)}</small></div></button>)}</div></article>)}</section> : <section className="blue-card empty-panel"><UsersRound size={30} /><h2>团队成员暂未加载</h2><p>服务器返回团队数据后，这里会显示昵称、真实姓名与头像。</p></section>}{inspecting ? <MemberAttendanceDialog member={inspecting} isAdmin={isAdmin} onClose={() => setInspecting(null)} onNotice={onNotice} /> : null}</div>;
 };
 
 const ReportsPage = ({ teamStats, onNotice }: { teamStats: TeamWeeklyStat[]; onNotice: (notice: string) => void }) => <div className="page reports-page"><section className="welcome-row"><div><p className="eyebrow">GROWTH REPORTS</p><h1>成长<span>报告</span></h1><p>日报与周报始终由成员保留在自己的 GitHub 博客；桌面端只读取公开内容、生成本地草稿与保存引用状态。</p></div><div className="week-pill"><CalendarDays size={17} /><span>{getWeekKey()}</span><i /></div></section><TeamBlogWall teamStats={teamStats} onNotice={onNotice} /><WeeklyReportWorkspace onNotice={onNotice} /></div>;
@@ -438,5 +433,5 @@ const QuickSchedule = ({ tasks, onClose, onSave }: { tasks: ScheduledTask[]; onC
     setDraftTitle(task.title);
     setDraftTime(task.time);
   };
-  return <div className="schedule-mask" role="dialog" aria-modal="true" aria-label="管理定时任务"><section className="schedule-dialog blue-card"><button className="schedule-close" onClick={onClose} aria-label="关闭"><X size={18} /></button><p className="eyebrow">SCHEDULE MANAGER</p><h2>定时提醒任务</h2><p>每个任务每天到点时都会显示 Windows 通知与小猫头顶消息。</p><div className="schedule-task-list">{tasks.length ? tasks.map((task) => <div className="schedule-task" key={task.id}><button className={`schedule-task-toggle ${task.enabled ? 'enabled' : ''}`} onClick={() => onSave(tasks.map((item) => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} aria-label={task.enabled ? '暂停任务' : '启用任务'}><i /></button><div><strong>{task.title}</strong><small>{task.time} · {task.enabled ? '已启用' : '已暂停'}</small></div><button onClick={() => beginEdit(task)}>修改</button><button className="schedule-remove" onClick={() => onSave(tasks.filter((item) => item.id !== task.id))}>取消</button></div>) : <p className="schedule-empty">还没有自定义提醒任务。</p>}</div><label>任务名称<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={24} autoFocus /></label><label>提醒时间<input value={draftTime} onChange={(event) => setDraftTime(event.target.value)} type="time" /></label><button className="primary-button" onClick={addOrUpdate}>{editingId ? '保存修改' : '创建并生效'} <BellRing size={17} /></button>{editingId ? <button className="schedule-cancel-edit" onClick={() => { setEditingId(null); setDraftTitle('专注提醒'); setDraftTime('20:30'); }}>取消修改</button> : null}</section></div>;
+  return <div className="schedule-mask" role="dialog" aria-modal="true" aria-label="管理定时任务"><section className="schedule-dialog blue-card"><button className="schedule-close" onClick={onClose} aria-label="关闭"><X size={18} /></button><p className="eyebrow">SCHEDULE MANAGER</p><h2>定时提醒任务</h2><p>每个任务每天到点时都会显示系统通知与系统通知。</p><div className="schedule-task-list">{tasks.length ? tasks.map((task) => <div className="schedule-task" key={task.id}><button className={`schedule-task-toggle ${task.enabled ? 'enabled' : ''}`} onClick={() => onSave(tasks.map((item) => item.id === task.id ? { ...item, enabled: !item.enabled } : item))} aria-label={task.enabled ? '暂停任务' : '启用任务'}><i /></button><div><strong>{task.title}</strong><small>{task.time} · {task.enabled ? '已启用' : '已暂停'}</small></div><button onClick={() => beginEdit(task)}>修改</button><button className="schedule-remove" onClick={() => onSave(tasks.filter((item) => item.id !== task.id))}>取消</button></div>) : <p className="schedule-empty">还没有自定义提醒任务。</p>}</div><label>任务名称<input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} maxLength={24} autoFocus /></label><label>提醒时间<input value={draftTime} onChange={(event) => setDraftTime(event.target.value)} type="time" /></label><button className="primary-button" onClick={addOrUpdate}>{editingId ? '保存修改' : '创建并生效'} <BellRing size={17} /></button>{editingId ? <button className="schedule-cancel-edit" onClick={() => { setEditingId(null); setDraftTitle('专注提醒'); setDraftTime('20:30'); }}>取消修改</button> : null}</section></div>;
 };

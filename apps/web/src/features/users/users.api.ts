@@ -13,10 +13,6 @@ export const updateProfile = async (input: UpdateProfileInput): Promise<User> =>
   return response.data;
 };
 
-export const updatePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
-  await apiClient.patch('/users/me/password', { oldPassword, newPassword });
-};
-
 export const getAdminMembers = async (): Promise<User[]> => {
   const response = await apiClient.get<{ items: User[] }>('/users/admin/members');
   return response.data.items;

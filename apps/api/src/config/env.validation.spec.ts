@@ -1,14 +1,41 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { validationSchema } from './env.validation';
 
 const baseEnv = {
   MONGODB_URI: 'mongodb://localhost:27017/lecpunch',
+  LOGTO_ENDPOINT: 'http://localhost:3001',
+  LOGTO_API_RESOURCE: 'https://api.lecpunch.lec.org',
+  LOGTO_ORGANIZATION_ID: 'lec-studio',
   AUTH_SECRET: 'a'.repeat(64),
   MEET_JWT_APP_ID: 'lecpunch-lan-meet',
   MEET_JWT_SECRET: 'f'.repeat(64)
 };
 
 describe('validationSchema', () => {
+  it.each(['.env.example', '../../deploy/api.env.example'])(
+    'accepts the documented API configuration from %s',
+    (file) => {
+      const entries = readFileSync(resolve(process.cwd(), file), 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => line.trim() && !line.trim().startsWith('#'))
+        .map((line) => {
+          const separator = line.indexOf('=');
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        });
+
+      const { error } = validationSchema.validate(Object.fromEntries(entries));
+      expect(error).toBeUndefined();
+    }
+  );
+
+  it('accepts an empty optional team ID and still rejects malformed IDs', () => {
+    expect(validationSchema.validate({ ...baseEnv, LECPUNCH_TEAM_ID: '' }).error).toBeUndefined();
+    expect(validationSchema.validate({ ...baseEnv, LECPUNCH_TEAM_ID: 'not-a-team-id' }).error)
+      .toBeDefined();
+  });
+
   it('rejects invalid exact IP entries', () => {
     const { error } = validationSchema.validate({
       ...baseEnv,

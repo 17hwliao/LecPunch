@@ -8,6 +8,7 @@ export interface ElectionUser {
   enrollYear?: number;
   studentId?: string;
   realName?: string;
+  avatarUrl?: string;
   avatarBase64?: string;
   avatarColor?: string;
   avatarEmoji?: string;
@@ -41,9 +42,11 @@ export interface WeeklyReportFeed {
 export interface TeamWeeklyStat {
   memberKey: string;
   displayName: string;
+  username?: string;
   realName?: string;
   enrollYear?: number;
   role: 'member' | 'admin';
+  avatarUrl?: string;
   avatarBase64?: string;
   avatarColor?: string;
   avatarEmoji?: string;
@@ -62,7 +65,10 @@ export interface TeamWeeklyStatsResponse {
 export interface TeamActiveAttendance {
   memberKey: string;
   displayName: string;
+  username?: string;
+  realName?: string;
   enrollYear?: number;
+  avatarUrl?: string;
   avatarBase64?: string;
   avatarColor?: string;
   avatarEmoji?: string;
@@ -134,18 +140,6 @@ export interface PointsSummary {
   weekPoints: number;
   accrualRate: { focusedMinutes: number; points: number };
   calculatedAt: string;
-}
-
-export interface ShopUnlocksResponse {
-  skinIds: string[];
-}
-
-export interface ShopUnlockResponse {
-  skinId: string;
-  unlockedAt: string;
-  alreadyUnlocked: boolean;
-  pricePoints: number;
-  totalPoints: number;
 }
 
 export interface AttendanceDaySummary {

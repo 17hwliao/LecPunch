@@ -1,0 +1,81 @@
+name: Electron Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: electron-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    runs-on: macos-15
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 校验版本
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./apps/election/package.json').version")"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$GITHUB_REF_NAME" == "v$VERSION" ]]
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "$GITHUB_REF_NAME 已存在"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 测试与检查桌面端
+        run: |
+          pnpm --filter @lecpunch/election test
+          pnpm --filter @lecpunch/election typecheck
+
+      - name: 构建 macOS 安装包
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm --filter @lecpunch/election package:mac
+
+      - name: 校验产物并生成校验和
+        run: |
+          set -euo pipefail
+          test "$(find apps/election/release -maxdepth 1 -name '*.dmg' | wc -l | tr -d ' ')" = 2
+          file apps/election/release/mac-arm64/LecPunch\ Election.app/Contents/MacOS/LecPunch\ Election | grep -q arm64
+          file apps/election/release/mac/LecPunch\ Election.app/Contents/MacOS/LecPunch\ Election | grep -q x86_64
+          shasum -a 256 apps/election/release/*.dmg apps/election/release/*.zip > apps/election/release/SHA256SUMS.txt
+
+      - name: 创建待审核 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            apps/election/release/*.dmg \
+            apps/election/release/*.zip \
+            apps/election/release/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "LecPunch Election $VERSION" \
+            --generate-notes \
+            --draft

@@ -1,6 +1,6 @@
 {
   "name": "@lecpunch/election",
-  "version": "0.1.25",
+  "version": "0.1.27",
   "private": true,
   "main": ".electron/main.js",
   "scripts": {
@@ -9,18 +9,17 @@
     "dev:renderer": "node ./node_modules/vite/bin/vite.js --host 127.0.0.1",
     "build": "tsc -p tsconfig.electron.json && tsc -b && node ./node_modules/vite/bin/vite.js build",
     "package:win": "node scripts/package-win.mjs",
+    "package:mac": "pnpm build && electron-builder --mac dmg zip --arm64 --x64 --publish never",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "typecheck": "tsc -p tsconfig.electron.json --noEmit && tsc -b",
+    "test": "tsc electron/version.ts electron/version.test.ts electron/auth.ts electron/auth.test.ts --module commonjs --target ES2022 --esModuleInterop --skipLibCheck --outDir .test-tmp && node .test-tmp/version.test.js && node --test .test-tmp/auth.test.js && rm -rf .test-tmp",
     "start": "node ./node_modules/electron/cli.js ."
   },
   "dependencies": {
     "@lecpunch/shared": "workspace:*",
-    "easy-live2d": "^0.4.4",
     "lucide-react": "^1.7.0",
-    "pixi.js": "^8.18.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "uiohook-napi": "1.5.5"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
@@ -42,28 +41,46 @@
     "files": [
       "dist/**/*",
       ".electron/**/*",
-      "package.json",
-      "node_modules/uiohook-napi/**/*",
-      "node_modules/node-gyp-build/**/*"
+      "package.json"
     ],
     "asar": true,
-    "asarUnpack": [
-      "node_modules/uiohook-napi/**/*"
-    ],
     "extraResources": [
       {
         "from": "resources/icon.ico",
         "to": "icon.ico"
       },
       {
-        "from": "node_modules/uiohook-napi",
-        "to": "native-modules/node_modules/uiohook-napi"
-      },
-      {
-        "from": "../../node_modules/.pnpm/node-gyp-build@4.8.4/node_modules/node-gyp-build",
-        "to": "native-modules/node_modules/node-gyp-build"
+        "from": "resources/icon.icns",
+        "to": "icon.icns"
       }
     ],
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSCameraUsageDescription": "LecPunch 在视频会议中需要访问摄像头。",
+        "NSMicrophoneUsageDescription": "LecPunch 在视频会议中需要访问麦克风。"
+      },
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "sign": false
+    },
     "win": {
       "icon": "resources/icon.ico",
       "target": [

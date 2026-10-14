@@ -14,8 +14,6 @@ import type {
   MyWeeklyStatsResponse,
   NetworkPolicyStatus,
   PointsSummary,
-  ShopUnlockResponse,
-  ShopUnlocksResponse,
   ReportItem,
   TeamEventItem,
   TeamGitHubSourcesResponse,
@@ -29,8 +27,7 @@ import type {
   MeetTokenResponse
 } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://43.138.244.158/api';
-const TOKEN_KEY = 'lecpunch.election.token';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000';
 const ADMIN_PREVIEW_SESSION_KEY = 'lecpunch.election.admin-preview';
 export const AUTH_EXPIRED_EVENT = 'lecpunch.election.auth-expired';
 
@@ -106,16 +103,14 @@ let previewNotifications: ElectionNotification[] = [{
   createdAt: '2026-09-02T11:30:00.000Z',
   acknowledgedAt: null
 }];
-let previewShopPoints = 1840;
-const previewUnlockedSkinIds = new Set<string>();
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 export const isAdminPreviewSession = () => localStorage.getItem(ADMIN_PREVIEW_SESSION_KEY) === 'true';
 export const getApiBaseUrl = () => API_BASE_URL;
-export const readToken = () => localStorage.getItem(TOKEN_KEY);
-export const clearToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
+export const getAuthStatus = () => window.lecpunchDesktop?.auth.getStatus() ?? Promise.resolve({ authenticated: false });
+export const clearToken = async () => {
   localStorage.removeItem(ADMIN_PREVIEW_SESSION_KEY);
+  await window.lecpunchDesktop?.auth.signOut();
 };
 
 const toMessage = (value: unknown, fallback: string) => {
@@ -133,12 +128,18 @@ const errorMessageForStatus = (status: number, payload: { message?: unknown } | 
 };
 
 const dispatchAuthExpired = () => {
-  clearToken();
+  void clearToken();
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
 };
 
-const requestResponse = async (path: string, init: RequestInit = {}): Promise<Response> => {
-  const token = readToken();
+const requestResponse = async (path: string, init: RequestInit = {}, mayRetry = true): Promise<Response> => {
+  let token: string | undefined;
+  try {
+    token = isAdminPreviewSession() ? undefined : await window.lecpunchDesktop?.auth.getAccessToken();
+  } catch {
+    dispatchAuthExpired();
+    throw new ApiError(401, '登录已失效，请重新登录。');
+  }
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const usesFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
@@ -154,6 +155,10 @@ const requestResponse = async (path: string, init: RequestInit = {}): Promise<Re
   }
 
   if (response.ok) return response;
+  if (response.status === 401 && mayRetry && token) {
+    window.lecpunchDesktop?.auth.invalidateAccessToken();
+    return requestResponse(path, init, false);
+  }
   const payload = await response.json().catch(() => null) as { message?: unknown; code?: string } | null;
   if (response.status === 401) dispatchAuthExpired();
   throw new ApiError(response.status, errorMessageForStatus(response.status, payload), payload?.code, payload);
@@ -185,17 +190,13 @@ const requestDownload = async (path: string) => {
 /** Starts the bundled UI preview without manufacturing or submitting credentials. */
 export const enterAdminPreview = () => {
   localStorage.setItem(ADMIN_PREVIEW_SESSION_KEY, 'true');
-  localStorage.setItem(TOKEN_KEY, 'local-admin-preview');
   return clone(previewUser);
 };
 
-export const login = async (username: string, password: string) => {
-  const result = await request<{ accessToken: string; user: ElectionUser }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password })
-  });
-  localStorage.setItem(TOKEN_KEY, result.accessToken);
-  return result.user;
+export const login = async () => {
+  if (!window.lecpunchDesktop) throw new ApiError(400, 'LEC SSO 登录仅支持桌面客户端。');
+  await window.lecpunchDesktop.auth.signIn();
+  return fetchCurrentUser();
 };
 
 /** The server signs a five-minute, room-scoped Jitsi token. It is never persisted. */
@@ -227,32 +228,13 @@ export const fetchPoints = (week?: string) => {
   if (week && !ISO_WEEK_PATTERN.test(week)) return Promise.reject(new ApiError(400, '周格式应为 YYYY-Www，例如 2026-W36。'));
   const currentWeek = previewWeek(week);
   if (isAdminPreviewSession()) return Promise.resolve({
-    totalPoints: previewShopPoints,
+    totalPoints: 1840,
     week: currentWeek,
     weekPoints: 286,
     accrualRate: { focusedMinutes: 1, points: 1 },
     calculatedAt: '2026-09-02T12:00:00.000Z'
   } satisfies PointsSummary);
   return request<PointsSummary>(`/points/me${week ? `?week=${encodeURIComponent(week)}` : ''}`);
-};
-
-/** Server-backed unlock state; preview keeps its entire simulation in memory. */
-export const fetchShopUnlocks = () => isAdminPreviewSession()
-  ? Promise.resolve({ skinIds: [...previewUnlockedSkinIds] } satisfies ShopUnlocksResponse)
-  : request<ShopUnlocksResponse>('/shop/unlocks');
-
-export const unlockShopSkin = async (skinId: string) => {
-  if (!/^[a-z0-9][a-z0-9-]{0,63}$/i.test(skinId)) return Promise.reject(new ApiError(400, '皮肤标识无效。'));
-  if (isAdminPreviewSession()) {
-    const alreadyUnlocked = previewUnlockedSkinIds.has(skinId);
-    if (!alreadyUnlocked && previewShopPoints < 600) throw new ApiError(400, '积分不足 600，暂时无法解锁该皮肤。', 'SHOP_INSUFFICIENT_POINTS');
-    if (!alreadyUnlocked) {
-      previewUnlockedSkinIds.add(skinId);
-      previewShopPoints -= 600;
-    }
-    return { skinId, unlockedAt: new Date().toISOString(), alreadyUnlocked, pricePoints: 600, totalPoints: previewShopPoints } satisfies ShopUnlockResponse;
-  }
-  return request<ShopUnlockResponse>('/shop/unlock', { method: 'POST', body: JSON.stringify({ skinId }) });
 };
 
 export const fetchMyWeeklySummary = (week: string) => {

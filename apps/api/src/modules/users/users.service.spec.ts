@@ -47,6 +47,28 @@ describe('UsersService', () => {
     service = new UsersService(userModel, attendanceModel, configService, pointsService);
   });
 
+
+  describe('syncLogtoProfile', () => {
+    const user = { id: 'user1', username: 'old.handle', realName: '旧真名', avatarUrl: 'https://sso.example.com/old.png' };
+    it('未改变的 SSO 资料不写数据库', async () => {
+      await expect(service.syncLogtoProfile(user as never, { username: user.username, realName: user.realName, avatarUrl: user.avatarUrl })).resolves.toBe(user);
+      expect(findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+    it('只更新身份展示字段，不修改团队、角色和打卡归属', async () => {
+      findByIdAndUpdate.mockReturnValue({ exec: vi.fn().mockResolvedValue(user) });
+      await service.syncLogtoProfile(user as never, { username: 'new.handle', realName: '新真名', avatarUrl: 'https://sso.example.com/new.png' });
+      expect(findByIdAndUpdate).toHaveBeenCalledWith('user1', { $set: { username: 'new.handle', realName: '新真名', avatarUrl: 'https://sso.example.com/new.png' } }, { new: true });
+    });
+    it('SSO 删除头像时移除缓存；旧 token 缺少字段时保留缓存', async () => {
+      findByIdAndUpdate.mockReturnValue({ exec: vi.fn().mockResolvedValue(user) });
+      await service.syncLogtoProfile(user as never, { username: user.username, avatarUrl: null });
+      expect(findByIdAndUpdate).toHaveBeenCalledWith('user1', { $set: {}, $unset: { avatarUrl: 1 } }, { new: true });
+      findByIdAndUpdate.mockClear();
+      await service.syncLogtoProfile(user as never, { username: user.username });
+      expect(findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('updateProfile - avatar mutual exclusion', () => {
     beforeEach(() => {
       findByIdAndUpdate.mockReturnValue({

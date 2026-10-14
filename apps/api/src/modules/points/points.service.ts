@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PointLedgerEntry, PointLedgerEntryDocument } from './schemas/point-ledger-entry.schema';
 import { getIsoWeekKey, getWeekKey, parseIsoWeekKey } from '../../common/utils/time.util';
-import { SKIN_PRICE_POINTS } from '../../common/constants/shop.constants';
 import type { AuthUser } from '../auth/types/auth-user.type';
 
 const ATTENDANCE_POINTS_PER_MINUTE = 1;
@@ -16,12 +15,6 @@ export interface SyncAttendancePointsInput {
   weekKey: string;
   durationSeconds: number;
   isValid: boolean;
-}
-
-export interface RecordSkinUnlockExpenseInput {
-  teamId: string;
-  userId: string;
-  skinId: string;
 }
 
 @Injectable()
@@ -60,32 +53,6 @@ export class PointsService {
     return points;
   }
 
-  async getUserPoints(teamId: string, userId: string) {
-    const [summary] = await this.pointLedgerModel
-      .aggregate<{ totalPoints: number }>([
-        { $match: { teamId, userId } },
-        { $group: { _id: null, totalPoints: { $sum: '$points' } } }
-      ])
-      .exec();
-
-    return { totalPoints: summary?.totalPoints ?? 0 };
-  }
-
-  async findSkinUnlockExpense(userId: string, skinId: string) {
-    return this.pointLedgerModel.findOne({ sourceAttendanceSessionId: this.getSkinUnlockSourceReference(userId, skinId) }).exec();
-  }
-
-  async recordSkinUnlockExpense(input: RecordSkinUnlockExpenseInput): Promise<void> {
-    await this.pointLedgerModel.create({
-      teamId: input.teamId,
-      userId: input.userId,
-      weekKey: getWeekKey(new Date()),
-      sourceType: 'skin_unlock',
-      sourceAttendanceSessionId: this.getSkinUnlockSourceReference(input.userId, input.skinId),
-      points: -SKIN_PRICE_POINTS
-    });
-  }
-
   async getMyPoints(user: AuthUser, requestedWeek?: string) {
     const week = requestedWeek ?? getIsoWeekKey(new Date());
     const monday = parseIsoWeekKey(week);
@@ -121,7 +88,4 @@ export class PointsService {
     await this.pointLedgerModel.deleteMany({ teamId, userId }).exec();
   }
 
-  private getSkinUnlockSourceReference(userId: string, skinId: string) {
-    return `skin_unlock:${userId}:${skinId}`;
-  }
 }

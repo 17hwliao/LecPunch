@@ -29,7 +29,7 @@ export const AppearanceSettings = ({
   }, [onAppearanceChanged, onNotice]);
 
   const chooseBackground = async () => {
-    if (!window.lecpunchDesktop) return onNotice('自定义背景仅在 Windows 桌面端可用。');
+    if (!window.lecpunchDesktop) return onNotice('自定义背景仅在桌面客户端中可用。');
     setSaving(true);
     try {
       const next = await window.lecpunchDesktop.selectAppearanceBackground();

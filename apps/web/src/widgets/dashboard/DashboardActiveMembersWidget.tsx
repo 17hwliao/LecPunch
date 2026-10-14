@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Activity, Clock3, Radio, Users } from 'lucide-react';
-import { ATTENDANCE_MAX_SECONDS, type TeamActiveAttendanceItem } from '@lecpunch/shared';
+import { formatMemberName, ATTENDANCE_MAX_SECONDS, type TeamActiveAttendanceItem } from '@lecpunch/shared';
 import { Avatar, Badge } from '@lecpunch/ui';
 import { useDashboardContext } from '@/features/dashboard/context/DashboardContext';
 import { useSecondsTicker } from '@/shared/hooks/useSecondsTicker';
@@ -68,10 +68,11 @@ const DashboardActiveMembersWidgetComponent = () => {
                       size="md"
                       avatarColor={member.avatarColor}
                       avatarEmoji={member.avatarEmoji}
+                      avatarUrl={member.avatarUrl}
                       avatarBase64={member.avatarBase64}
                     />
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-gray-900">{member.displayName}</div>
+                      <div className="truncate text-sm font-semibold text-gray-900">{formatMemberName(member)}</div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                         <span>{member.enrollYear ? `${member.enrollYear} 级` : '未标注年级'}</span>
                         <span>·</span>

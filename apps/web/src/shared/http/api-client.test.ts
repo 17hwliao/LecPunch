@@ -8,6 +8,9 @@ const state = {
   setAuth: vi.fn()
 };
 
+const getAccessToken = vi.fn();
+vi.mock('@/shared/auth/logto', () => ({ getAccessToken }));
+
 vi.mock('@/app/store/auth-store', () => ({
   useAuthStore: {
     getState: () => ({
@@ -21,7 +24,7 @@ vi.mock('@/app/store/auth-store', () => ({
 
 const getRequestHandler = (apiClient: { interceptors: { request: unknown } }) =>
   (apiClient.interceptors.request as {
-    handlers: Array<{ fulfilled?: (config: { headers?: unknown }) => { headers?: unknown } }>;
+    handlers: Array<{ fulfilled?: (config: { headers?: unknown }) => Promise<{ headers?: unknown }> }>;
   }).handlers[0]?.fulfilled;
 
 const getResponseErrorHandler = (apiClient: { interceptors: { response: unknown } }) =>
@@ -34,6 +37,7 @@ describe('apiClient', () => {
     vi.resetModules();
     vi.clearAllMocks();
     state.auth.token = null;
+    getAccessToken.mockResolvedValue(undefined);
   });
 
   it('uses VITE_API_BASE_URL when provided', async () => {
@@ -53,11 +57,11 @@ describe('apiClient', () => {
   });
 
   it('injects bearer token into request headers', async () => {
-    state.auth.token = 'token-123';
+    getAccessToken.mockResolvedValue('token-123');
     const { apiClient } = await import('./api-client');
     const handler = getRequestHandler(apiClient);
 
-    const config = handler?.({ headers: {} });
+    const config = await handler?.({ headers: {} });
     const headers = AxiosHeaders.from((config?.headers ?? {}) as Record<string, string>);
 
     expect(headers.get('Authorization')).toBe('Bearer token-123');

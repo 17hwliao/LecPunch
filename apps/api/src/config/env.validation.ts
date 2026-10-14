@@ -47,9 +47,13 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   PORT: Joi.number().default(4000),
   MONGODB_URI: Joi.string().uri().required(),
+  LOGTO_ENDPOINT: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  LOGTO_API_RESOURCE: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  LOGTO_ORGANIZATION_ID: Joi.string().default('lec-studio'),
   AUTH_SECRET: Joi.string().min(16).required(),
   MEET_JWT_APP_ID: Joi.string().pattern(/^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/).required(),
   MEET_JWT_SECRET: Joi.string().min(32).required(),
+  LECPUNCH_TEAM_ID: Joi.string().pattern(/^[a-f\d]{24}$/i).allow('').optional(),
   DEFAULT_TEAM_NAME: Joi.string().default('FocusTeam'),
   ALLOW_OPEN_REGISTRATION: Joi.boolean().truthy('true').falsy('false').default(true),
   ATTENDANCE_BALANCED_ACCOUNTING_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
@@ -69,9 +73,8 @@ export const validationSchema = Joi.object({
     if (!value.ALLOW_ANY_NETWORK && !hasAllowedIps && !hasAllowedCidrs) {
       return helpers.error('network.allowlistRequired');
     }
-
-    if (value.MEET_JWT_SECRET === value.AUTH_SECRET) {
-      return helpers.error('meet.secretMustDiffer');
+    if (value.AUTH_SECRET === value.MEET_JWT_SECRET) {
+      return helpers.error('secret.reused');
     }
 
     return value;
@@ -79,5 +82,5 @@ export const validationSchema = Joi.object({
   .messages({
     'network.allowlistRequired':
       'ALLOWED_PUBLIC_IPS or ALLOWED_CIDRS must be configured when ALLOW_ANY_NETWORK=false',
-    'meet.secretMustDiffer': 'MEET_JWT_SECRET must differ from AUTH_SECRET'
+    'secret.reused': 'MEET_JWT_SECRET must differ from AUTH_SECRET'
   });

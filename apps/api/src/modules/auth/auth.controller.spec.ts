@@ -2,32 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthController } from './auth.controller';
 
 describe('AuthController', () => {
-  const authService = {
-    login: vi.fn(),
-    register: vi.fn(),
-    getProfile: vi.fn()
-  };
-
+  const usersService = { findById: vi.fn() };
   let controller: AuthController;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    controller = new AuthController(authService as any);
+    controller = new AuthController(usersService as never);
   });
 
-  it('delegates login requests to AuthService', async () => {
-    authService.login.mockResolvedValue({
-      accessToken: 'token',
-      user: { id: 'user-1' }
+  it('返回当前 SSO 用户，并以 token 投影角色', async () => {
+    usersService.findById.mockResolvedValue({
+      id: 'user-1', username: 'demo-member', displayName: 'Demo Member',
+      teamId: 'team-1', role: 'member', status: 'active', enrollYear: 2023
     });
 
-    const payload = { username: 'demo-member', password: '123456' } as any;
-    const result = await controller.login(payload);
-
-    expect(authService.login).toHaveBeenCalledWith(payload);
-    expect(result).toEqual({
-      accessToken: 'token',
-      user: { id: 'user-1' }
+    await expect(controller.me({ userId: 'user-1', role: 'admin' } as never)).resolves.toMatchObject({
+      id: 'user-1', role: 'admin', status: 'active'
     });
   });
 });

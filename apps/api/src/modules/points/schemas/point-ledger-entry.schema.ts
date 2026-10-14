@@ -12,6 +12,7 @@ export class PointLedgerEntry {
   @Prop({ required: true, type: String, index: true })
   weekKey!: string;
 
+  // 历史皮肤消费记录继续参与审计；商城已移除，不再产生新记录。
   @Prop({ required: true, type: String, enum: ['attendance', 'skin_unlock'], default: 'attendance' })
   sourceType!: 'attendance' | 'skin_unlock';
 
@@ -20,7 +21,6 @@ export class PointLedgerEntry {
   @Prop({ required: true, type: String, unique: true })
   sourceAttendanceSessionId!: string;
 
-  // Attendance earns positive points; auditable shop purchases spend negative points.
   @Prop({ required: true, type: Number, default: 0 })
   points!: number;
 }

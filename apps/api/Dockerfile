@@ -10,6 +10,7 @@ ENV npm_config_registry=$NPM_REGISTRY
 ENV NPM_CONFIG_USERCONFIG=/app/.npmrc
 ENV npm_config_userconfig=/app/.npmrc
 ENV XDG_CONFIG_HOME=/tmp/xdg
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
 WORKDIR /app
 

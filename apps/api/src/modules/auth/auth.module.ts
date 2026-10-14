@@ -1,31 +1,15 @@
-import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { Global, Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { TeamsModule } from '../teams/teams.module';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { PassportModule } from '@nestjs/passport';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { MemberEligibilityModule } from '../member-eligibility/member-eligibility.module';
+import { LogtoAuthService } from './logto-auth.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
+@Global()
 @Module({
-  imports: [
-    UsersModule,
-    TeamsModule,
-    MemberEligibilityModule,
-    ConfigModule,
-    PassportModule,
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('AUTH_SECRET'),
-        signOptions: { expiresIn: '7d' }
-      })
-    })
-  ],
+  imports: [UsersModule, TeamsModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService]
+  providers: [LogtoAuthService, JwtAuthGuard],
+  exports: [LogtoAuthService, JwtAuthGuard]
 })
 export class AuthModule {}

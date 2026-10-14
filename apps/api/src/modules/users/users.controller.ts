@@ -66,6 +66,7 @@ export class UsersController {
       enrollYear: user.enrollYear,
       studentId: user.studentId,
       realName: user.realName,
+      avatarUrl: user.avatarUrl,
       avatarBase64: user.avatarBase64,
       avatarColor: user.avatarColor,
       avatarEmoji: user.avatarEmoji,
