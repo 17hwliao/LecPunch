@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS build
+FROM node:22-bookworm-slim AS build
 
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 ARG PNPM_VERSION=8.15.4
@@ -29,7 +29,7 @@ RUN pnpm install --frozen-lockfile --registry=${NPM_REGISTRY}
 RUN pnpm --filter @lecpunch/shared build
 RUN pnpm --filter @lecpunch/api build
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
 

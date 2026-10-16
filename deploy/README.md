@@ -125,11 +125,16 @@ The reconciliation command keeps the newest active session for each user, invali
 
 Because the archived `users` collection already contains role and password-hash data, existing administrators migrate with the snapshot. Use the bootstrap command only if you need to promote or recover a separate admin account.
 
-## 8. Suggested next step after the test
+## 8. 团队服务器自动部署
 
-After the small-scale test is stable, move to:
+`.github/workflows/ci.yml` 仅对 `main` 的 push 自动部署。先完成工作区构建、类型检查、全部测试与部署边界测试，再构建 Web/API 镜像；两张镜像均成功后，按摘要发布同一提交。PR、标签和其他分支不会部署。main 的发布串行执行；服务器再次核对 CI 和 main 当前 SHA，拒绝迟到的旧提交。
 
-1. a domain name
-2. HTTPS
-3. an image registry such as Tencent Cloud TCR or GHCR
-4. GitHub Actions for automated build and deployment
+- GitHub Secret：`LEC_DEPLOY_SSH_KEY`，仅允许固定发布命令。
+- GitHub Variables：`LEC_DEPLOY_HOST`、`LEC_DEPLOY_KNOWN_HOSTS`、`LOGTO_ENDPOINT`。主机公钥必须先核验。`production` Environment 仅允许 `main`。
+- 公网跳板：`gateway.py` 安装为 `/usr/local/sbin/lec-deploy-punch-gateway`；CI 公钥绑定 `restrict,command="/usr/local/sbin/lec-deploy-punch-gateway cloud"`。跳板专用内部密钥和主机指纹保存在 `/var/lib/lecpunch-deploy/`，只连接本机 FRP `127.0.0.1:46776`。
+- 内部 PVE：同一入口安装于相同路径，跳板公钥绑定 `restrict,command="/usr/local/sbin/lec-deploy-punch-gateway pve"`，只允许进入 CT103 的 LecPunch 发布器。
+- CT103：`production.py` 安装为 `/usr/local/sbin/lec-deploy-punch`，root 所有、0700。它复用已安装的 `/usr/local/sbin/lec-deploy-production` 工具函数，运行 `--install` 一次，把现有 1Panel 编排拆成原配置与持久镜像引用；安装前后运行模型与容器必须一致。`--check` 可检查连接与编排。
+
+实际编排位于 `/opt/1panel/docker/compose/lecpunch-production`，生产 `.env`、Nginx、公网端口、数据卷、资源限制都留在服务器；流水线只替换 API/Web 镜像。每次更新前备份 Mongo，并核对健康、实际端口/挂载与 Mongo 容器身份。状态、受限日志和备份位于 CT103 的 `/var/lib/lecpunch-deploy`。镜像拉取使用本次任务的临时 GitHub 凭证，退出后删除登录目录。失败时停止，不自动恢复数据库；根权限执行器需要管理员审查后手动更新。
+
+本地验证：`python3 -m unittest discover -s deploy/automation -p 'test_*.py' -v`。日常发布结果在 GitHub **CI** 的 **Deploy production** 中查看。

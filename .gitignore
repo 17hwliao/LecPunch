@@ -31,6 +31,7 @@ lan-meet/certs/
 # Turbo caches and local debug artifacts
 .turbo/
 *.tsbuildinfo
+__pycache__/
 apps/election/.local-electron-user-data/
 apps/election/.local-test-electron-profile/
 apps/election/.local-test-logs/
