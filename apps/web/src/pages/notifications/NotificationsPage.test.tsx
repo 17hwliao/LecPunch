@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { useAuthStore } from '@/app/store/auth-store';
 import { createUserFixture } from '@/test/user-fixture';
 import { NotificationsPage } from './NotificationsPage';
-const mocks = vi.hoisted(() => ({ page: vi.fn(), ack: vi.fn(), refresh: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn() }));
-vi.mock('@/features/notifications/NotificationProvider', () => ({ useNotifications: () => ({ count: 1, error: '', refresh: mocks.refresh }) }));
+const mocks = vi.hoisted(() => ({ count: 1, page: vi.fn(), ack: vi.fn(), refresh: vi.fn(), preferences: vi.fn(), savePreferences: vi.fn() }));
+vi.mock('@/features/notifications/NotificationProvider', () => ({ useNotifications: () => ({ count: mocks.count, error: '', refresh: mocks.refresh }) }));
 vi.mock('@/features/notifications/notifications.api', () => ({ getNotificationPage: mocks.page, acknowledgeNotification: mocks.ack, getNotificationPreferences: mocks.preferences, setNotificationPreferences: mocks.savePreferences }));
 const notice = { id: 'notice-1', title: '团队通知', message: '请确认阅读', type: 'admin.notice', acknowledgedAt: null as string | null, createdAt: '2026-10-17T10:00:00Z' };
 type Page = { items: typeof notice[]; nextCursor: string | null };
@@ -22,7 +22,7 @@ const settle = async (pending: ReturnType<typeof deferred<Page>>, items: typeof 
 };
 afterEach(cleanup);
 describe('NotificationsPage', () => {
-  beforeEach(() => { vi.resetAllMocks(); useAuthStore.setState({ auth: { token: 'token', user: createUserFixture({ role: 'member' }) } }); mocks.page.mockResolvedValue({ items: [notice], nextCursor: null }); });
+  beforeEach(() => { vi.resetAllMocks(); mocks.count = 1; useAuthStore.setState({ auth: { token: 'token', user: createUserFixture({ role: 'member' }) } }); mocks.page.mockResolvedValue({ items: [notice], nextCursor: null }); });
   it('does not mark messages read on page load, and persists explicit member confirmation', async () => {
     mocks.ack.mockResolvedValue({ ...notice, acknowledgedAt: '2026-10-17T11:00:00Z' });
     render(<MemoryRouter><NotificationsPage /></MemoryRouter>);
@@ -212,5 +212,45 @@ describe('NotificationsPage', () => {
     await act(async () => { nextAccount.resolve({ adminMessageBadgeEnabled: true }); await nextAccount.promise; });
     expect(checkbox).toBeEnabled();
     expect(checkbox).toBeChecked();
+  });
+
+  it('preserves the loaded window during count refresh and refetches every loaded page', async () => {
+    const first = Array.from({ length: 20 }, (_, i) => ({ ...notice, id: `notice-${i}`, message: `第一页 ${i}` }));
+    const last = { ...notice, id: 'last', message: '第二页内容' };
+    mocks.page.mockResolvedValueOnce({ items: first, nextCursor: 'cursor-1' }).mockResolvedValueOnce({ items: [last], nextCursor: null });
+    const view = mount();
+    await screen.findByText('第一页 0');
+    await userEvent.click(screen.getByRole('button', { name: '加载更多' }));
+    await screen.findByText('第二页内容');
+    const nextPage = deferred<Page>();
+    mocks.page.mockResolvedValueOnce({ items: first, nextCursor: 'new-cursor' }).mockReturnValueOnce(nextPage.promise);
+    mocks.count = 2;
+    view.rerender(<MemoryRouter><NotificationsPage /></MemoryRouter>);
+    await waitFor(() => expect(mocks.page).toHaveBeenCalledTimes(4));
+    expect(screen.getByText('第二页内容')).toBeInTheDocument();
+    expect(mocks.page).toHaveBeenLastCalledWith({ status: 'unacked', limit: 20, before: 'new-cursor' }, expect.any(AbortSignal));
+    await settle(nextPage, [{ ...last, message: '第二页最新内容' }]);
+    expect(screen.getByText('第一页 0')).toBeInTheDocument();
+    expect(screen.getByText('第二页最新内容')).toBeInTheDocument();
+  });
+
+  it('keeps other loaded pages visible after acknowledgement and preserves them on refresh failure', async () => {
+    const first = Array.from({ length: 20 }, (_, i) => ({ ...notice, id: `notice-${i}`, message: `第一页 ${i}` }));
+    const last = { ...notice, id: 'last', message: '第二页内容' };
+    mocks.page.mockResolvedValueOnce({ items: first, nextCursor: 'cursor-1' }).mockResolvedValueOnce({ items: [last], nextCursor: null });
+    mount();
+    await screen.findByText('第一页 0');
+    await userEvent.click(screen.getByRole('button', { name: '加载更多' }));
+    await screen.findByText('第二页内容');
+    const refresh = deferred<Page>();
+    mocks.page.mockReturnValueOnce(refresh.promise);
+    mocks.ack.mockResolvedValue({ ...first[0], acknowledgedAt: 'now' });
+    await userEvent.click(screen.getAllByRole('button', { name: '标记已读' })[0]);
+    expect(screen.queryByText('第一页 0')).not.toBeInTheDocument();
+    expect(screen.getByText('第二页内容')).toBeInTheDocument();
+    await act(async () => { refresh.reject(new Error('refresh failed')); await refresh.promise.catch(() => {}); });
+    expect(screen.getByText('第二页内容')).toBeInTheDocument();
+    expect(screen.queryByText('第一页 0')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 });

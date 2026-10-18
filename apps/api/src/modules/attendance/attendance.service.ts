@@ -246,7 +246,7 @@ export class AttendanceService {
       this.getManualAdjustmentSeconds(currentUser.teamId, target.id, weekKey)
     ]);
     return { userId: target.id, weekKey, isoWeek: getIsoWeekKey(new Date()), recordedDurationSeconds: recorded, manualAdjustmentSeconds: adjustment,
-      totalDurationSeconds: Math.max(0, recorded + adjustment) };
+      totalDurationSeconds: recorded + adjustment };
   }
 
   async adjustCurrentWeekDuration(currentUser: AuthUser, input: AdjustCurrentWeekDurationDto) {
@@ -276,7 +276,7 @@ export class AttendanceService {
         this.getLegacyAdjustmentSeconds(scope.teamId, target.id, weekKey)
       ]);
       const before = recorded + legacy + bucket.entries.reduce((n, e) => n + e.signedDurationSeconds, 0);
-      if (before < 0) throw new ConflictException('原始记录变化导致调整余额异常，请先核对历史记录');
+      if (before < 0 && input.operation !== 'add') throw new ConflictException('余额异常，只能增加时长补正至非负');
       const delta = input.operation === 'add' ? input.durationSeconds : -input.durationSeconds;
       if (before + delta < 0) throw new BadRequestException({ code: 'ATTENDANCE_DURATION_CANNOT_BE_NEGATIVE', message: '扣减后的当前周打卡时长不能低于 0' });
       const entry = { id: new Types.ObjectId().toString(), requestKey: key, requestHash: hash,

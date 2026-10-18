@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { MemberMessage } from '@/features/messages/messages.api';
 import { AdminMessagesPage } from './AdminMessagesPage';
@@ -81,5 +81,45 @@ describe('AdminMessagesPage', () => {
     await screen.findByRole('alert');
     expect(input).toHaveValue('旧备注追加内容');
     expect(screen.getByRole('button', { name: '标记处理完成' })).toBeEnabled();
+  });
+
+  it.each(['success', 'failure'])('ignores a list started before processing completed: %s', async outcome => {
+    render(<AdminMessagesPage />);
+    const input = await screen.findByRole('textbox', { name: '处理备注' });
+    await userEvent.clear(input); await userEvent.type(input, '已确认备注');
+    let resolve!: (value: { items: MemberMessage[]; total: number }) => void;
+    let reject!: (error: Error) => void;
+    const list = new Promise<{ items: MemberMessage[]; total: number }>((yes, no) => { resolve = yes; reject = no; });
+    mocks.list.mockReturnValueOnce(list);
+    await userEvent.click(screen.getByRole('button', { name: '刷新' }));
+    mocks.process.mockResolvedValue({ ...latest, processingNote: '已确认备注' });
+    await userEvent.click(screen.getByRole('button', { name: '标记处理完成' }));
+    await screen.findByRole('button', { name: '重新打开' });
+    await act(async () => {
+      if (outcome === 'success') resolve({ items: [message], total: 1 });
+      else reject(new Error('obsolete list failed'));
+      await list.catch(() => {});
+    });
+    expect(input).toHaveValue('已确认备注');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新打开' })).toBeEnabled();
+    mocks.process.mockResolvedValue({ ...message, processingNote: '已确认备注' });
+    await userEvent.click(screen.getByRole('button', { name: '重新打开' }));
+    expect(mocks.process).toHaveBeenLastCalledWith(message.id, 'open', '已确认备注');
+  });
+
+  it('waits for all processing requests before allowing page changes', async () => {
+    mocks.list.mockResolvedValue({ items: [message, { ...message, id: 'message-2' }], total: 40 });
+    const resolvers: ((value: MemberMessage) => void)[] = [];
+    mocks.process.mockImplementation(() => new Promise<MemberMessage>(resolve => { resolvers.push(resolve); }));
+    render(<AdminMessagesPage />);
+    await screen.findAllByRole('button', { name: '标记处理完成' });
+    const buttons = screen.getAllByRole('button', { name: '标记处理完成' });
+    await userEvent.click(buttons[0]); await userEvent.click(buttons[1]);
+    expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
+    await act(async () => { resolvers[0](latest); });
+    expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
+    await act(async () => { resolvers[1]({ ...latest, id: 'message-2' }); });
+    expect(screen.getByRole('button', { name: '下一页' })).toBeEnabled();
   });
 });

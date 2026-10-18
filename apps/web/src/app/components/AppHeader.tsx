@@ -107,10 +107,9 @@ export const AppHeader = () => {
         </div>
       </div>
       <div className="flex items-center gap-5">
-        <Link to="/notifications" className="relative rounded-lg p-2 text-gray-600 hover:bg-gray-100" aria-label={`通知，${badgeCount} 条未读`} title={notificationError || '通知中心'}>
+        <Link to="/notifications" className="relative rounded-lg p-2 text-gray-600 hover:bg-gray-100" aria-label={`通知，${badgeCount} 条未读${notificationError ? `，${notificationError}` : ''}`} title={notificationError || '通知中心'}>
           <Bell className="h-5 w-5" />
           {badgeCount > 0 && <span aria-hidden="true" className="absolute -right-2 -top-1 min-w-5 rounded-full bg-red-600 px-1 text-center text-xs leading-5 text-white">{badgeCount > 99 ? '99+' : badgeCount}</span>}
-          {notificationError && <span className="sr-only">{notificationError}</span>}
         </Link>
       <div
         className="flex items-center space-x-3 cursor-pointer"

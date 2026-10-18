@@ -2,6 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createHash } from 'crypto';
+import { validate } from 'class-validator';
+import { ProcessReportDto } from './dto/process-report.dto';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { ReportsService } from './reports.service';
@@ -125,6 +127,19 @@ describe('ReportsService', () => {
     const result = await service.processReport({ ...user, role: 'admin', userId: 'admin-1' }, report.id,
       { status: 'processed', note: report.processingNote });
     expect(result).toMatchObject({ processingNote: '管理员内部备注', processedBy: 'admin-1', processingStatus: 'processed' });
+  });
+
+  it.each([undefined, '', '  新备注  '])('preserves omitted notes but accepts explicit clearing or replacement: %s', async note => {
+    findOneAndUpdate.mockReturnValue({ exec: vi.fn().mockResolvedValue(processedReport()) });
+    await service.processReport({ ...user, role: 'admin' }, 'report-1', { status: 'processed', note });
+    const update = findOneAndUpdate.mock.calls[0][1].$set;
+    if (note === undefined) expect(update).not.toHaveProperty('processingNote');
+    else expect(update.processingNote).toBe(note.trim());
+  });
+
+  it('rejects null notes instead of interpreting them as omitted or clearing', async () => {
+    const input = Object.assign(new ProcessReportDto(), { status: 'processed', note: null });
+    expect(await validate(input)).toEqual(expect.arrayContaining([expect.objectContaining({ property: 'note' })]));
   });
 
   it('rejects a file that only claims to be an image', async () => {

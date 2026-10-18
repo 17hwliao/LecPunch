@@ -19,6 +19,7 @@ describe('AttendanceService', () => {
   const usersService = {
     findByIds: vi.fn(),
     findByUsername: vi.fn(),
+    findById: vi.fn(),
     getMemberKey: vi.fn((id: string) => `member-key-${id}`)
   };
   const pointsService = { syncAttendancePoints: vi.fn().mockResolvedValue(0) };
@@ -311,5 +312,35 @@ describe('AttendanceService', () => {
     ).rejects.toMatchObject({ response: { code: ERROR_CODES.ATTENDANCE_CROSS_TEAM_FORBIDDEN } });
 
     expect(adjustmentCreate).not.toHaveBeenCalled();
+  });
+
+  it('exposes the signed balance for administrator correction previews', async () => {
+    usersService.findById.mockResolvedValue({ id: 'member-1', teamId: user.teamId, status: 'active' });
+    aggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([{ totalSeconds: 0 }]) });
+    adjustmentAggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([{ totalSeconds: -600 }]) });
+    expect(await service.adjustmentContext(user, 'member-1')).toMatchObject({ totalDurationSeconds: -600, manualAdjustmentSeconds: -600 });
+  });
+
+  it.each([
+    { operation: 'add' as const, seconds: 600, accepted: true, after: 0 },
+    { operation: 'add' as const, seconds: 660, accepted: true, after: 60 },
+    { operation: 'add' as const, seconds: 599, accepted: false, after: -1 },
+    { operation: 'subtract' as const, seconds: 60, accepted: false, after: -660 }
+  ])('handles negative-balance correction: $operation $seconds', async ({ operation, seconds, accepted, after }) => {
+    usersService.findByUsername.mockResolvedValue({ id: 'member-1', teamId: user.teamId, username: 'alice', status: 'active' });
+    aggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([{ totalSeconds: 0 }]) });
+    adjustmentAggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([{ totalSeconds: -600 }]) });
+    const input = { username: 'alice', operation, durationSeconds: seconds, requestKey: 'repair-key-1', reason: '核对原始记录后补正' };
+    if (accepted) {
+      const result = await service.adjustCurrentWeekDuration({ ...user, role: 'admin' }, input);
+      expect(result).toMatchObject({ previousDurationSeconds: -600, resultingDurationSeconds: after });
+      expect(bucket.entries).toHaveLength(1);
+      expect(await service.adjustCurrentWeekDuration({ ...user, role: 'admin' }, input)).toMatchObject({ adjustmentId: result.adjustmentId });
+      expect(bucket.entries).toHaveLength(1);
+    } else {
+      await expect(service.adjustCurrentWeekDuration({ ...user, role: 'admin' }, input)).rejects.toMatchObject({ status: operation === 'subtract' ? 409 : 400 });
+      expect(bucketUpdate).not.toHaveBeenCalled();
+    }
+    expect(pointsService.syncAttendancePoints).not.toHaveBeenCalled();
   });
 });

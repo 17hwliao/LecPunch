@@ -25,6 +25,8 @@ export const NotificationsPage = () => {
   const generation = useRef(0);
   const accountGeneration = useRef(0);
   const currentFilter = useRef(filter);
+  const loadedPages = useRef(1);
+  const queryKey = useRef('');
   const invalidate = useCallback(() => {
     generation.current += 1;
     request.current?.abort();
@@ -35,7 +37,7 @@ export const NotificationsPage = () => {
     setPending(null);
     return () => { accountGeneration.current += 1; };
   }, [userId]);
-  const load = useCallback(async (before?: string) => {
+  const load = useCallback(async (before?: string, preserveWindow = false) => {
     invalidate();
     if (!userId) { setLoading(false); return; }
     const controller = new AbortController();
@@ -44,20 +46,36 @@ export const NotificationsPage = () => {
     const isCurrent = () => !controller.signal.aborted && version === generation.current;
     setLoading(true); setError('');
     try {
-      const page = await getNotificationPage({ status: filter, limit: 20, before }, controller.signal);
+      const pages = preserveWindow ? loadedPages.current : 1;
+      let next = before;
+      const received: NotificationItem[] = [];
+      let fetchedPages = 0;
+      for (let index = 0; index < pages; index++) {
+        const page = await getNotificationPage({ status: filter, limit: 20, before: next }, controller.signal);
+        if (!isCurrent()) return;
+        fetchedPages += 1;
+        const ids = new Set(received.map(item => item.id));
+        received.push(...page.items.filter(item => !ids.has(item.id)));
+        next = page.items.length === 20 ? page.nextCursor ?? undefined : undefined;
+        if (!next) break;
+      }
       if (!isCurrent()) return;
-      setItems(old => before ? [...old, ...page.items.filter(item => !old.some(n => n.id === item.id))] : page.items);
-      setCursor(page.items.length === 20 ? page.nextCursor : null);
+      loadedPages.current = before ? loadedPages.current + fetchedPages : fetchedPages;
+      setItems(old => before ? [...old, ...received.filter(item => !old.some(n => n.id === item.id))] : received);
+      setCursor(next ?? null);
       refresh();
     } catch (e) { if (isCurrent()) setError(getApiErrorMessage(e, '加载通知失败')); }
     finally { if (isCurrent()) setLoading(false); }
   }, [userId, filter, refresh, invalidate]);
   useLayoutEffect(() => {
     currentFilter.current = filter;
-    setItems([]); setCursor(null);
-    void load();
+    const key = JSON.stringify([userId, filter]);
+    const changed = queryKey.current !== key;
+    queryKey.current = key;
+    if (changed) { setItems([]); setCursor(null); loadedPages.current = 1; }
+    void load(undefined, !changed);
     return invalidate;
-  }, [load, count, reloadVersion, invalidate, filter]);
+  }, [load, count, reloadVersion, invalidate, filter, userId]);
   useEffect(() => {
     let active = true;
     setEnabled(true);

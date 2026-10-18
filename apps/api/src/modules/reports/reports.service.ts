@@ -140,7 +140,7 @@ export class ReportsService implements OnModuleInit, OnModuleDestroy {
 
   async processReport(user: AuthUser, reportId: string, input: { status: 'open' | 'processed'; note?: string }) {
     const report = await this.reportModel.findOneAndUpdate({ _id: reportId, teamId: user.teamId }, { $set: {
-      processingStatus: input.status, processingNote: input.note?.trim() ?? '',
+      processingStatus: input.status, ...(input.note !== undefined ? { processingNote: input.note.trim() } : {}),
       processedBy: user.userId, processedByDisplayName: user.displayName, processedAt: new Date()
     } }, { new: true }).exec();
     if (!report) throw new NotFoundException('Report not found');
