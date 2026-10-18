@@ -240,12 +240,13 @@ export class AttendanceService {
 
   async adjustmentContext(currentUser: AuthUser, userId: string) {
     const target = await this.adjustmentTarget(currentUser, { userId });
-    const weekKey = getWeekKey(new Date());
+    const now = new Date();
+    const weekKey = getWeekKey(now);
     const [recorded, adjustment] = await Promise.all([
       this.getRecordedWeekDurationSeconds(currentUser.teamId, target.id, weekKey),
       this.getManualAdjustmentSeconds(currentUser.teamId, target.id, weekKey)
     ]);
-    return { userId: target.id, weekKey, isoWeek: getIsoWeekKey(new Date()), recordedDurationSeconds: recorded, manualAdjustmentSeconds: adjustment,
+    return { userId: target.id, weekKey, isoWeek: getIsoWeekKey(now), recordedDurationSeconds: recorded, manualAdjustmentSeconds: adjustment,
       totalDurationSeconds: recorded + adjustment };
   }
 

@@ -321,6 +321,25 @@ describe('AttendanceService', () => {
     expect(await service.adjustmentContext(user, 'member-1')).toMatchObject({ totalDurationSeconds: -600, manualAdjustmentSeconds: -600 });
   });
 
+  it('keeps balance and audit week identifiers consistent when a read crosses Shanghai Monday', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-18T15:59:59.999Z'));
+    usersService.findById.mockResolvedValue({ id: 'member-1', teamId: user.teamId, status: 'active' });
+    aggregate.mockReturnValue({ exec: vi.fn().mockImplementation(async () => {
+      vi.setSystemTime(new Date('2026-10-18T16:00:00.001Z'));
+      return [{ totalSeconds: 600 }];
+    }) });
+    adjustmentAggregate.mockReturnValue({ exec: vi.fn().mockResolvedValue([]) });
+    try {
+      await expect(service.adjustmentContext(user, 'member-1')).resolves.toMatchObject({
+        weekKey: '2026-10-12', isoWeek: '2026-W42', totalDurationSeconds: 600
+      });
+      expect(aggregate).toHaveBeenCalledWith(expect.arrayContaining([
+        { $match: { teamId: user.teamId, userId: 'member-1', weekKey: '2026-10-12', status: { $ne: 'active' } } }
+      ]));
+    } finally { vi.useRealTimers(); }
+  });
+
   it.each([
     { operation: 'add' as const, seconds: 600, accepted: true, after: 0 },
     { operation: 'add' as const, seconds: 660, accepted: true, after: 60 },

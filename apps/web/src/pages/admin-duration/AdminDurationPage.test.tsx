@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AdminDurationPage } from './AdminDurationPage';
 
@@ -76,5 +76,52 @@ describe('AdminDurationPage', () => {
     expect(screen.getByRole('button', { name: '确认调整' })).toBeEnabled();
     await userEvent.click(screen.getByRole('button', { name: '确认调整' }));
     expect(mocks.adjust).toHaveBeenCalledWith(expect.objectContaining({ operation: 'add', durationSeconds: 600 }));
+  });
+
+  it.each(['success', 'failure'])('clears old errors and audit rows when changing members: %s', async outcome => {
+    mocks.members.mockResolvedValue([
+      { id: 'member-1', username: 'alice', displayName: '成员 A', status: 'active' },
+      { id: 'member-2', username: 'bob', displayName: '成员 B', status: 'active' }
+    ]);
+    mocks.audit.mockResolvedValue([{ adjustmentId: 'old', displayName: '成员 A', operation: 'add', durationSeconds: 60, reason: '旧周审计', createdAt: '2026-10-12T10:00:00Z' }]);
+    render(<AdminDurationPage />);
+    await screen.findByRole('option', { name: /成员 A/ });
+    const select = screen.getByRole('combobox', { name: '选择成员' });
+    await userEvent.selectOptions(select, 'member-1');
+    await screen.findByText('旧周审计');
+    mocks.adjust.mockRejectedValueOnce(new Error('旧成员提交失败'));
+    await userEvent.type(screen.getByRole('spinbutton', { name: '分钟' }), '1');
+    await userEvent.type(screen.getByRole('textbox', { name: '调整原因' }), '补录');
+    await userEvent.click(screen.getByRole('button', { name: '确认调整' }));
+    await screen.findByRole('alert');
+    let resolve!: (value: object) => void;
+    let reject!: (error: Error) => void;
+    const pending = new Promise((yes, no) => { resolve = yes; reject = no; });
+    mocks.context.mockReturnValueOnce(pending);
+    mocks.audit.mockResolvedValueOnce([]);
+    await userEvent.selectOptions(select, 'member-2');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('旧周审计')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认调整' })).toBeDisabled();
+    await act(async () => {
+      if (outcome === 'success') resolve({ userId: 'member-2', weekKey: '2026-10-19', isoWeek: '2026-W43', recordedDurationSeconds: 0, manualAdjustmentSeconds: 0, totalDurationSeconds: 0 });
+      else reject(new Error('新成员加载失败'));
+      await pending.catch(() => {});
+    });
+    if (outcome === 'success') expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    else { expect(screen.getByRole('alert')).toHaveTextContent('加载调整信息失败'); expect(screen.getByRole('button', { name: '确认调整' })).toBeDisabled(); }
+    expect(screen.queryByText('旧周审计')).not.toBeInTheDocument();
+  });
+
+  it('clears the team audit when the member selection becomes empty', async () => {
+    mocks.audit.mockResolvedValue([{ adjustmentId: 'old', displayName: '成员 A', operation: 'add', durationSeconds: 60, reason: '旧周审计', createdAt: '2026-10-12T10:00:00Z' }]);
+    render(<AdminDurationPage />);
+    await screen.findByRole('option', { name: /测试成员/ });
+    const select = screen.getByRole('combobox', { name: '选择成员' });
+    await userEvent.selectOptions(select, 'member-1');
+    await screen.findByText('旧周审计');
+    await userEvent.selectOptions(select, '');
+    expect(screen.queryByText('旧周审计')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认调整' })).toBeDisabled();
   });
 });

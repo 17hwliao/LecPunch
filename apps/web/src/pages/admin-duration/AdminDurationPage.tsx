@@ -22,7 +22,7 @@ export const AdminDurationPage = () => {
   };
   useEffect(() => { void getAdminMembers().then(setMembers).catch(e => setError(getApiErrorMessage(e, '加载成员失败'))); }, []);
   useEffect(() => {
-    let active = true; setContext(null); setRequestKey(crypto.randomUUID()); setSuccess(''); setRefreshNeeded(false);
+    let active = true; setContext(null); setRequestKey(crypto.randomUUID()); setSuccess(''); setRefreshNeeded(false); setError(''); setAudit([]);
     if (userId) void getAdjustmentContext(userId).then(async value => {
       const rows = await getAdjustmentAudit(value.isoWeek);
       if (active) { setContext(value); setAudit(rows); }
